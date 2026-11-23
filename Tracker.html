@@ -1,11 +1,291 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Location Sharing</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><style>body{background:#f3f6fb;color:#172033;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}.wrap{max-width:570px;margin:5vh auto;padding:16px}.panel{border:0;border-radius:22px;box-shadow:0 12px 35px #0f172a12}.btn{border-radius:12px;min-height:48px;font-weight:600}.muted{color:#64748b}.live{display:inline-block;width:9px;height:9px;background:#16a34a;border-radius:50%;margin-right:8px}</style></head><body><div class="wrap"><div class="card panel p-4 p-md-5"><div class="text-primary fw-bold small mb-3">LIVE LOCATION SHARING</div><h2 class="fw-bold mb-2">Share your location</h2><p class="muted">This page shares your device location with the person who sent this link while this page stays open and your device allows location access.</p><div class="alert alert-info small"><strong>Information:</strong><br>Your GPS coordinates, accuracy and time will be saved in location history. The link owner can view your latest shared location. Sharing is visible and can be stopped anytime.</div><div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="consent"><label class="form-check-label" for="consent">I understand and agree to share my location while this page is active.</label></div><button id="shareBtn" class="btn btn-primary w-100">Agree & allow location</button><button id="stopBtn" class="btn btn-outline-danger w-100 mt-2 d-none">Stop sharing</button><div id="status" class="small mt-3 muted" role="status">Location sharing has not started.</div><div id="details" class="small muted mt-2"></div><p class="small muted mt-4 mb-0">You can stop sharing here or close this page. Browser tracking may pause when the page is in the background or the phone is locked. Updates depend on GPS and network availability; one-second updates are not guaranteed.</p></div></div>
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script><script>
-const API_URL=<?!= JSON.stringify(appUrl) ?>;const USER_ID=<?!= JSON.stringify(userId) ?>;const TOKEN=<?!= JSON.stringify(token) ?>;let watchId=null,stopped=true,lastSent=0,inFlight=false;
-function api(data){return $.ajax({url:API_URL,type:'GET',data:data,dataType:'jsonp',timeout:30000}).then(r=>{if(!r||!r.ok)throw new Error(r&&r.error?r.error:'Could not connect to server');return r.data;});}
-function status(t,bad){$('#status').text(t).toggleClass('text-danger',!!bad).toggleClass('text-success',!bad);}
-function start(){if(!USER_ID||!TOKEN){status('This tracking link is invalid.',true);return;}if(!$('#consent').is(':checked')){status('Please agree to share your location first.',true);return;}if(!navigator.geolocation){status('This browser does not support GPS location.',true);return;}if(!window.isSecureContext){status('Open this tracking link using the secure HTTPS address.',true);return;}stopped=false;$('#shareBtn').addClass('d-none');$('#stopBtn').removeClass('d-none');status('Requesting GPS permission...');watchId=navigator.geolocation.watchPosition(onPosition,onError,{enableHighAccuracy:true,maximumAge:0,timeout:25000});}
-function onPosition(pos){if(stopped)return;const c=pos.coords;$('#details').text('GPS accuracy: about '+Math.round(c.accuracy)+' metres · Last fix: '+new Date(pos.timestamp).toLocaleTimeString());const now=Date.now();if(now-lastSent<900||inFlight)return;lastSent=now;inFlight=true;status('Location received. Saving to Google Sheets...');api({api:'saveLocation',userId:USER_ID,token:TOKEN,latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,clientTime:new Date(pos.timestamp).toISOString()}).then(()=>{if(!stopped)status('Location sharing is active.',false);}).catch(e=>{if(!stopped)status(e.message,true);}).always(()=>{inFlight=false;});}
-function onError(e){let m='Unable to get location.';if(e.code===1)m='Location permission denied. Enable location permission in browser settings and reopen this link.';if(e.code===2)m='Device could not determine location. Please turn on GPS/location services.';if(e.code===3)m='GPS request timed out. Try again in an open area.';status(m,true);}
-function stop(){stopped=true;if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null;$('#stopBtn').addClass('d-none');$('#shareBtn').removeClass('d-none');status('Stopping location sharing...');api({api:'stopSharing',userId:USER_ID,token:TOKEN}).then(()=>status('Location sharing stopped.')).catch(e=>status('Sharing stopped on this page. Server status update failed: '+e.message,true));}
-$('#shareBtn').on('click',start);$('#stopBtn').on('click',stop);window.addEventListener('pagehide',()=>{stopped=true;if(watchId!==null)navigator.geolocation.clearWatch(watchId);});
-</script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Location Sharing</title>
+
+    <!-- Bootstrap 5.3.3 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <style>
+      body {
+        background: #f3f6fb;
+        font-family: Arial, sans-serif;
+        color: #172033;
+      }
+
+      .tracker-card {
+        max-width: 480px;
+        margin: 50px auto;
+        background: #fff;
+        border-radius: 20px;
+        padding: 28px;
+        box-shadow: 0 10px 35px rgba(0, 0, 0, 0.07);
+      }
+
+      .location-icon {
+        width: 75px;
+        height: 75px;
+        background: #e8f0ff;
+        color: #2563eb;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 34px;
+        margin: auto;
+      }
+
+      .status-box {
+        background: #f1f5f9;
+        padding: 14px;
+        border-radius: 12px;
+        font-size: 14px;
+      }
+
+      .data-box {
+        background: #f8fafc;
+        padding: 13px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+      }
+
+      .data-label {
+        color: #64748b;
+        font-size: 12px;
+      }
+
+      .data-value {
+        font-weight: 600;
+        font-size: 14px;
+        word-break: break-all;
+      }
+
+      .btn-stop {
+        background: #dc3545;
+        color: white;
+        border: none;
+      }
+
+      .btn-stop:hover {
+        background: #bb2d3b;
+        color: white;
+      }
+
+      .small-note {
+        font-size: 12px;
+        color: #64748b;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="tracker-card">
+        <div class="text-center mb-4">
+          <div class="location-icon mb-3">📍</div>
+          <h4 class="fw-bold">Live Location Sharing</h4>
+          <p class="text-secondary small mb-0">Share your device location with the authorized person.</p>
+        </div>
+
+        <div class="status-box text-center mb-4">
+          <div id="statusText" class="fw-semibold">Waiting for your permission</div>
+          <small id="statusMessage" class="text-secondary"> Allow location access to start sharing. </small>
+        </div>
+
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <div class="data-box">
+              <div class="data-label">Latitude</div>
+              <div class="data-value" id="latitude">--</div>
+            </div>
+          </div>
+
+          <div class="col-6">
+            <div class="data-box">
+              <div class="data-label">Longitude</div>
+              <div class="data-value" id="longitude">--</div>
+            </div>
+          </div>
+
+          <div class="col-6">
+            <div class="data-box">
+              <div class="data-label">Accuracy</div>
+              <div class="data-value" id="accuracy">--</div>
+            </div>
+          </div>
+
+          <div class="col-6">
+            <div class="data-box">
+              <div class="data-label">Last Update</div>
+              <div class="data-value" id="lastUpdate">--</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-grid gap-2">
+          <button id="stopBtn" class="btn btn-stop btn-lg" disabled>Stop Sharing</button>
+
+          <a id="mapLink" href="#" target="_blank" class="btn btn-outline-primary d-none"> View My Location </a>
+        </div>
+
+        <div class="text-center mt-4">
+          <p class="small-note mb-0">Location sharing continues only while this page is active. You can stop sharing at any time.</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      $(document).ready(function () {
+        // YOUR GOOGLE APPS SCRIPT API URL
+        const API_URL = "https://script.google.com/macros/s/AKfycbwa-WNArAUUNmgG3Syd6inCnsSG77OfozKAsIQRadqYhLbZE49q0FSXke6gaQ3fqxftrg/exec";
+
+        // User ID and Token from Apps Script template
+        const USER_ID = "<?= userId ?>";
+        const USER_TOKEN = "<?= token ?>";
+
+        let watchId = null;
+        let trackingActive = false;
+
+        function setStatus(title, message) {
+          $("#statusText").text(title);
+          $("#statusMessage").text(message);
+        }
+
+        function startTracking() {
+          if (!navigator.geolocation) {
+            setStatus("GPS Not Supported", "Your browser does not support location services.");
+            return;
+          }
+
+          if (!USER_ID || !USER_TOKEN || USER_ID.indexOf("<?= ") === 0 || USER_TOKEN.indexOf("<?= ") === 0) {
+            setStatus("Invalid Tracking Link", "Please open the unique tracking link shared with you.");
+            return;
+          }
+
+          if (!window.isSecureContext) {
+            setStatus("Secure Connection Required", "Open this page through your deployed HTTPS Apps Script URL.");
+            return;
+          }
+
+          setStatus("Requesting Permission", "Please allow location access in your browser.");
+
+          watchId = navigator.geolocation.watchPosition(
+            function (position) {
+              trackingActive = true;
+
+              const latitude = position.coords.latitude;
+              const longitude = position.coords.longitude;
+              const accuracy = position.coords.accuracy;
+
+              $("#latitude").text(latitude.toFixed(6));
+              $("#longitude").text(longitude.toFixed(6));
+              $("#accuracy").text(Math.round(accuracy) + " meters");
+
+              const now = new Date();
+              $("#lastUpdate").text(now.toLocaleTimeString());
+
+              const mapsUrl = "https://www.google.com/maps?q=" + latitude + "," + longitude;
+
+              $("#mapLink").attr("href", mapsUrl).removeClass("d-none");
+
+              $("#stopBtn").prop("disabled", false);
+
+              setStatus("Location Sharing Active", "Your location is being shared.");
+
+              // Send location to Google Sheets using jQuery AJAX JSONP
+              $.ajax({
+                url: API_URL,
+                type: "GET",
+                dataType: "jsonp",
+                timeout: 20000,
+                data: {
+                  api: "saveLocation",
+                  userId: USER_ID,
+                  token: USER_TOKEN,
+                  latitude: latitude,
+                  longitude: longitude,
+                  accuracy: accuracy,
+                  clientTime: now.toISOString(),
+                },
+
+                success: function (response) {
+                  if (response && response.success) {
+                    console.log("Location saved successfully.");
+                  } else {
+                    console.error("Location save failed:", response);
+                    setStatus("Location Not Saved", "Please check your tracking link or connection.");
+                  }
+                },
+
+                error: function (xhr, status, error) {
+                  console.error("AJAX Error:", status, error);
+                  setStatus("Sync Error", "Could not confirm the Google Sheets update. Retrying on the next GPS update.");
+                },
+              });
+            },
+
+            function (error) {
+              let message = "Unable to get your location.";
+
+              switch (error.code) {
+                case error.PERMISSION_DENIED:
+                  message = "Location permission denied. Enable location permission in browser settings.";
+                  break;
+
+                case error.POSITION_UNAVAILABLE:
+                  message = "Location is currently unavailable. Check device GPS.";
+                  break;
+
+                case error.TIMEOUT:
+                  message = "Location request timed out. Please try again.";
+                  break;
+              }
+
+              setStatus("Location Error", message);
+            },
+
+            {
+              enableHighAccuracy: true,
+              maximumAge: 0,
+              timeout: 20000,
+            },
+          );
+        }
+
+        function stopTracking() {
+          if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+          }
+
+          trackingActive = false;
+
+          $("#stopBtn").prop("disabled", true);
+
+          setStatus("Sharing Stopped", "Your device is no longer sending location updates.");
+        }
+
+        $("#stopBtn").on("click", function () {
+          stopTracking();
+        });
+
+        // Start automatically after the page explains location sharing.
+        // The browser will request explicit permission.
+        startTracking();
+
+        // Stop GPS watch when page is being closed.
+        window.addEventListener("pagehide", function () {
+          if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
