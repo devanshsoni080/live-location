@@ -1,123 +1,249 @@
+/*************************************************
+ * LIVETRACK - POINT 1: ADMIN PANEL + GOOGLE SHEETS
+ *************************************************/
+
 const SHEET_ID = "1dm1XZRWtPAUxVO5LuHakbrIM4lOJQfOisNocijmt-cU";
-// Change this before deploying. Use a long, private password.
-const ADMIN_PASSWORD = "CHANGE_THIS_TO_A_PRIVATE_PASSWORD";
 const USERS_SHEET = "Users";
 const HISTORY_SHEET = "Location_History";
-const SESSION_SECONDS = 21600; // 6 hours
 
 function doGet(e) {
-  const p = (e && e.parameter) || {};
-  if (p.api) return handleApi_(p);
-  if (p.page === "track") {
-    const t = HtmlService.createTemplateFromFile("Tracker");
-    t.userId = String(p.id || "");
-    t.token = String(p.token || "");
-    t.appUrl = ScriptApp.getService().getUrl();
-    return t.evaluate().setTitle("Location Sharing").addMetaTag("viewport", "width=device-width, initial-scale=1");
+  const p = (e && e.parameter) ? e.parameter : {};
+
+  // JSONP API
+  if (p.api) {
+    return handleApi_(p);
   }
-  const t = HtmlService.createTemplateFromFile("Index");
-  t.appUrl = ScriptApp.getService().getUrl();
-  return t.evaluate().setTitle("LiveTrack Admin").addMetaTag("viewport", "width=device-width, initial-scale=1");
+
+  // Tracker page is reserved for Point 2
+  if (p.page === "track") {
+    return HtmlService.createHtmlOutput(
+      '<div style="font-family:Arial;padding:24px">Tracker page will be added in Point 2.</div>'
+    ).setTitle("Live Location Sharing");
+  }
+
+  // Admin panel: inject the currently deployed Web App URL automatically.
+  const template = HtmlService.createTemplateFromFile("Index");
+  template.apiUrl = ScriptApp.getService().getUrl();
+
+  return template.evaluate()
+    .setTitle("LiveTrack Admin Panel")
+    .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 
+/**
+ * Run this function manually once from Apps Script.
+ * It creates the required tabs and headers.
+ */
 function setupSheets() {
   const ss = SpreadsheetApp.openById(SHEET_ID);
-  let u = ss.getSheetByName(USERS_SHEET);
-  if (!u) u = ss.insertSheet(USERS_SHEET);
-  if (u.getLastRow() === 0) {
-    u.appendRow(["User ID", "Name", "Token", "Created At", "Status", "Last Seen", "Latitude", "Longitude", "Accuracy", "Maps URL"]);
-    u.setFrozenRows(1); u.getRange(1,1,1,10).setFontWeight("bold");
+
+  const users = getOrCreateSheet_(ss, USERS_SHEET);
+  const history = getOrCreateSheet_(ss, HISTORY_SHEET);
+
+  const userHeaders = [
+    "User ID", "Name", "Token", "Created At", "Status",
+    "Last Seen", "Latitude", "Longitude", "Accuracy", "Maps URL"
+  ];
+
+  const historyHeaders = [
+    "User ID", "Name", "Date & Time", "Latitude",
+    "Longitude", "Accuracy", "Maps URL"
+  ];
+
+  ensureHeaders_(users, userHeaders);
+  ensureHeaders_(history, historyHeaders);
+
+  users.setFrozenRows(1);
+  history.setFrozenRows(1);
+
+  return "Setup successful. Users and Location_History tabs are ready.";
+}
+
+function getOrCreateSheet_(ss, name) {
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  return sheet;
+}
+
+function ensureHeaders_(sheet, headers) {
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    return;
   }
-  let h = ss.getSheetByName(HISTORY_SHEET);
-  if (!h) h = ss.insertSheet(HISTORY_SHEET);
-  if (h.getLastRow() === 0) {
-    h.appendRow(["User ID", "Name", "Date & Time", "Latitude", "Longitude", "Accuracy", "Maps URL"]);
-    h.setFrozenRows(1); h.getRange(1,1,1,7).setFontWeight("bold");
+
+  // If the first row is blank, insert headers. Do not overwrite existing data.
+  const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+  const isBlank = firstRow.every(v => v === "" || v === null);
+  if (isBlank) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   }
-  return "Sheets ready";
 }
 
 function handleApi_(p) {
-  const callback = String(p.callback || "");
-  if (!/^[a-zA-Z_$][0-9a-zA-Z_$\.\[\]]*$/.test(callback) || callback.length > 100) {
-    return ContentService.createTextOutput("Invalid callback").setMimeType(ContentService.MimeType.TEXT);
-  }
-  let result;
   try {
-    switch (String(p.api)) {
-      case "login": result = apiLogin_(p.password); break;
-      case "createUser": requireSession_(p.session); result = createUser_(p.name); break;
-      case "getUsers": requireSession_(p.session); result = getUsers_(); break;
-      case "saveLocation": result = saveLocation_(p); break;
-      case "stopSharing": result = stopSharing_(p); break;
-      default: throw new Error("Unknown API action.");
+    let data;
+
+    switch (String(p.api || "")) {
+      case "createUser":
+        data = createUser_(p.name);
+        break;
+
+      case "getUsers":
+        data = getUsers_();
+        break;
+
+      case "ping":
+        data = {
+          message: "API connected",
+          spreadsheet: SpreadsheetApp.openById(SHEET_ID).getName(),
+          timestamp: new Date().toISOString()
+        };
+        break;
+
+      default:
+        throw new Error("Unknown API action: " + p.api);
     }
-    return jsonp_(callback, { ok: true, data: result });
+
+    return jsonpResponse_({ ok: true, data: data }, p.callback);
+
   } catch (err) {
-    return jsonp_(callback, { ok: false, error: err && err.message ? err.message : String(err) });
+    console.error(err && err.stack ? err.stack : err);
+    return jsonpResponse_({
+      ok: false,
+      error: err && err.message ? err.message : String(err)
+    }, p.callback);
   }
 }
-function jsonp_(callback, obj) {
-  return ContentService.createTextOutput(callback + "(" + JSON.stringify(obj) + ");").setMimeType(ContentService.MimeType.JAVASCRIPT);
-}
-function apiLogin_(password) {
-  if (ADMIN_PASSWORD === "CHANGE_THIS_TO_A_PRIVATE_PASSWORD") throw new Error("Set your private ADMIN_PASSWORD in Code.gs first.");
-  if (String(password || "") !== ADMIN_PASSWORD) throw new Error("Incorrect admin password.");
-  const session = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
-  CacheService.getScriptCache().put("admin_" + session, "1", SESSION_SECONDS);
-  return { session: session, expiresIn: SESSION_SECONDS };
-}
-function requireSession_(session) {
-  if (!session || CacheService.getScriptCache().get("admin_" + String(session)) !== "1") throw new Error("Admin session expired. Please log in again.");
-}
+
 function createUser_(name) {
   name = String(name || "").trim();
+
   if (!name) throw new Error("Please enter a user name.");
-  if (name.length > 80) throw new Error("Name must be 80 characters or fewer.");
-  setupSheets();
-  const sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName(USERS_SHEET);
-  const userId = "U" + Utilities.getUuid().replace(/-/g, "").slice(0,10).toUpperCase();
-  const token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
-  const created = new Date();
-  sh.appendRow([userId, name, token, created, "Not started", "", "", "", "", ""]);
-  const base = ScriptApp.getService().getUrl();
-  if (!base) throw new Error("Deploy as a Web App before creating links.");
-  return { userId: userId, name: name, link: base + "?page=track&id=" + encodeURIComponent(userId) + "&token=" + encodeURIComponent(token), createdAt: created.toISOString() };
-}
-function getUsers_() {
-  setupSheets();
-  const values = SpreadsheetApp.openById(SHEET_ID).getSheetByName(USERS_SHEET).getDataRange().getValues();
-  if (values.length < 2) return [];
-  return values.slice(1).filter(r => r[0]).map(r => ({
-    userId:String(r[0]), name:String(r[1]), createdAt:iso_(r[3]), status:String(r[4] || "Not started"),
-    lastSeen:iso_(r[5]), latitude:r[6] === "" ? null : Number(r[6]), longitude:r[7] === "" ? null : Number(r[7]),
-    accuracy:r[8] === "" ? null : Number(r[8]), mapsUrl:String(r[9] || "")
-  })).reverse();
-}
-function iso_(v) { if (!v) return ""; const d = v instanceof Date ? v : new Date(v); return isNaN(d.getTime()) ? "" : d.toISOString(); }
-function findUser_(id, token) {
-  const sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName(USERS_SHEET);
-  if (!sh || sh.getLastRow() < 2) throw new Error("Tracking link not found.");
-  const rows = sh.getRange(2,1,sh.getLastRow()-1,10).getValues();
-  for (let i=0;i<rows.length;i++) if (String(rows[i][0]) === String(id) && String(rows[i][2]) === String(token)) return { sheet:sh, row:i+2, name:String(rows[i][1]) };
-  throw new Error("Invalid tracking link.");
-}
-function saveLocation_(p) {
-  const lat = Number(p.latitude), lng = Number(p.longitude), acc = Number(p.accuracy);
-  if (!isFinite(lat) || !isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) throw new Error("Invalid GPS coordinates.");
-  setupSheets();
-  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  if (name.length > 100) throw new Error("Name must be 100 characters or less.");
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+
   try {
-    const user = findUser_(p.userId, p.token), ss = SpreadsheetApp.openById(SHEET_ID), history = ss.getSheetByName(HISTORY_SHEET);
-    const now = new Date(), maps = "https://www.google.com/maps?q=" + lat + "," + lng;
-    user.sheet.getRange(user.row,5,1,6).setValues([["Online", now, lat, lng, isFinite(acc) ? acc : "", maps]]);
-    const clientDate = p.clientTime ? new Date(p.clientTime) : now;
-    history.appendRow([String(p.userId), user.name, isNaN(clientDate.getTime()) ? now : clientDate, lat, lng, isFinite(acc) ? acc : "", maps]);
-    return { saved:true, receivedAt:now.toISOString() };
-  } finally { lock.releaseLock(); }
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = ss.getSheetByName(USERS_SHEET);
+    if (!sheet) {
+      throw new Error('Users tab not found. Run setupSheets() once from Apps Script.');
+    }
+
+    const appUrl = ScriptApp.getService().getUrl();
+    if (!appUrl) {
+      throw new Error("Web App URL is unavailable. Deploy this project as a Web App.");
+    }
+
+    const userId = "USR-" + Utilities.getUuid()
+      .replace(/-/g, "").substring(0, 10).toUpperCase();
+    const token = Utilities.getUuid().replace(/-/g, "");
+    const createdAt = new Date();
+
+    const trackingLink = appUrl +
+      "?page=track&id=" + encodeURIComponent(userId) +
+      "&token=" + encodeURIComponent(token);
+
+    // Write the record in one operation.
+    sheet.appendRow([
+      userId, name, token, createdAt, "Offline",
+      "", "", "", "", ""
+    ]);
+    SpreadsheetApp.flush();
+
+    return {
+      userId: userId,
+      name: name,
+      token: token,
+      link: trackingLink,
+      status: "Offline",
+      createdAt: createdAt.toISOString()
+    };
+
+  } finally {
+    lock.releaseLock();
+  }
 }
-function stopSharing_(p) {
-  const user = findUser_(p.userId, p.token);
-  user.sheet.getRange(user.row,5).setValue("Stopped");
-  return { stopped:true };
+
+function getUsers_() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheetByName(USERS_SHEET);
+  if (!sheet) {
+    throw new Error('Users tab not found. Run setupSheets() once from Apps Script.');
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  const values = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+  const now = new Date();
+
+  return values
+    .filter(row => row[0] || row[1])
+    .map(row => {
+      const lastSeen = row[5];
+      let status = "Offline";
+
+      if (lastSeen instanceof Date) {
+        const age = now.getTime() - lastSeen.getTime();
+        if (age >= 0 && age <= 120000) status = "Online";
+      }
+
+      const lat = row[6];
+      const lng = row[7];
+
+      return {
+        userId: String(row[0] || ""),
+        name: String(row[1] || ""),
+        createdAt: toIso_(row[3]),
+        status: status,
+        lastSeen: toIso_(lastSeen),
+        latitude: lat === "" || lat === null ? null : Number(lat),
+        longitude: lng === "" || lng === null ? null : Number(lng),
+        accuracy: row[8] === "" || row[8] === null ? null : Number(row[8]),
+        mapsUrl: String(row[9] || "")
+      };
+    })
+    .reverse();
+}
+
+function toIso_(value) {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
+}
+
+function jsonpResponse_(payload, callback) {
+  callback = String(callback || "callback");
+
+  // jQuery JSONP callback names may contain dots and brackets.
+  if (!/^[A-Za-z_$][0-9A-Za-z_$.[\]]*$/.test(callback)) {
+    callback = "callback";
+  }
+
+  const body = callback + "(" + JSON.stringify(payload) + ");";
+  return ContentService.createTextOutput(body)
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
+}
+
+/**
+ * Optional manual diagnostic. Run from Apps Script editor.
+ */
+function testSheetConnection() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const users = ss.getSheetByName(USERS_SHEET);
+  const history = ss.getSheetByName(HISTORY_SHEET);
+
+  const result = {
+    spreadsheetName: ss.getName(),
+    spreadsheetId: ss.getId(),
+    usersTab: users ? "Found" : "Not Found",
+    historyTab: history ? "Found" : "Not Found",
+    usersLastRow: users ? users.getLastRow() : 0,
+    webAppUrl: ScriptApp.getService().getUrl()
+  };
+
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
 }

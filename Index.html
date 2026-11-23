@@ -1,520 +1,254 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LiveTrack - Admin Panel</title>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LiveTrack - Admin Panel</title>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
-    <style>
-      :root {
-        --primary: #2563eb;
-        --dark: #172033;
-        --muted: #64748b;
-      }
+  <style>
+    :root{--primary:#2563eb;--ink:#172033;--muted:#64748b}
+    body{background:#f4f7fb;color:var(--ink);font-family:Inter,Arial,sans-serif}
+    .navbar{background:#fff;border-bottom:1px solid #e9edf4;padding:16px 0}
+    .brand{font-size:22px;font-weight:800;color:var(--primary)}
+    .main{max-width:1150px;margin:auto;padding:30px 15px}
+    .stat-card,.panel{background:#fff;border:1px solid #edf0f5;border-radius:16px;padding:22px;height:100%}
+    .stat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:21px;margin-bottom:13px}
+    .stat-number{font-size:28px;font-weight:800}
+    .stat-label{color:var(--muted);font-size:13px}
+    .form-control{min-height:46px;border-radius:10px}
+    .btn{border-radius:10px}
+    .table th{background:#f8fafc;color:#64748b;font-size:12px;text-transform:uppercase;white-space:nowrap;padding:15px}
+    .table td{padding:15px;vertical-align:middle}
+    .status{padding:6px 11px;border-radius:30px;font-size:12px;font-weight:700;background:#dcfce7;color:#15803d}
+    .status.offline{background:#f1f5f9;color:#64748b}
+    .generated-link{background:#f1f5f9;padding:13px;border-radius:10px;overflow-wrap:anywhere;font-size:13px}
+    .muted{color:var(--muted)}
+    #apiStatus{font-size:12px}
+    @media(max-width:576px){.main{padding:20px 12px}.panel,.stat-card{padding:17px}.stat-number{font-size:24px}}
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="container d-flex justify-content-between align-items-center">
+    <div class="brand"><i class="bi bi-geo-alt-fill"></i> LiveTrack</div>
+    <span class="badge text-bg-primary">Admin Panel</span>
+  </div>
+</nav>
 
-      body {
-        background: #f4f7fb;
-        color: var(--dark);
-        font-family: Arial, sans-serif;
-      }
+<main class="main">
+  <div class="mb-4">
+    <h3 class="fw-bold mb-1">Dashboard</h3>
+    <p class="muted mb-0">Manage your location-sharing users.</p>
+    <div id="apiStatus" class="muted mt-2">Connecting to Google Sheets...</div>
+  </div>
 
-      .navbar {
-        background: #fff;
-        border-bottom: 1px solid #e9edf4;
-        padding: 16px 0;
-      }
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-lg-4"><div class="stat-card">
+      <div class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-people-fill"></i></div>
+      <div class="stat-number" id="totalUsers">0</div><div class="stat-label">Total Users</div>
+    </div></div>
+    <div class="col-6 col-lg-4"><div class="stat-card">
+      <div class="stat-icon bg-success-subtle text-success"><i class="bi bi-broadcast"></i></div>
+      <div class="stat-number" id="onlineUsers">0</div><div class="stat-label">Online Users</div>
+    </div></div>
+    <div class="col-12 col-lg-4"><div class="stat-card">
+      <div class="stat-icon bg-secondary-subtle text-secondary"><i class="bi bi-person-dash"></i></div>
+      <div class="stat-number" id="offlineUsers">0</div><div class="stat-label">Offline Users</div>
+    </div></div>
+  </div>
 
-      .brand {
-        font-size: 22px;
-        font-weight: 800;
-        color: var(--primary);
-      }
-
-      .main-container {
-        max-width: 1150px;
-        margin: auto;
-        padding: 30px 15px;
-      }
-
-      .stat-card,
-      .panel-card {
-        background: #fff;
-        border: 1px solid #edf0f5;
-        border-radius: 15px;
-        padding: 22px;
-      }
-
-      .stat-card {
-        height: 100%;
-      }
-
-      .stat-icon {
-        width: 44px;
-        height: 44px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 21px;
-        margin-bottom: 13px;
-      }
-
-      .stat-number {
-        font-size: 28px;
-        font-weight: 800;
-      }
-
-      .stat-label {
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .form-control {
-        min-height: 46px;
-        border-radius: 9px;
-      }
-
-      .btn {
-        border-radius: 9px;
-      }
-
-      .btn-primary {
-        background: var(--primary);
-        border-color: var(--primary);
-      }
-
-      .table th {
-        background: #f8fafc;
-        color: #64748b;
-        font-size: 12px;
-        text-transform: uppercase;
-        white-space: nowrap;
-        padding: 15px;
-      }
-
-      .table td {
-        padding: 15px;
-        vertical-align: middle;
-      }
-
-      .status {
-        padding: 6px 11px;
-        border-radius: 30px;
-        font-size: 12px;
-        font-weight: 600;
-        background: #dcfce7;
-        color: #15803d;
-      }
-
-      .status.offline {
-        background: #f1f5f9;
-        color: #64748b;
-      }
-
-      .created-link {
-        background: #f1f5f9;
-        padding: 13px;
-        border-radius: 9px;
-        overflow-wrap: anywhere;
-        font-size: 13px;
-      }
-
-      .muted {
-        color: var(--muted);
-      }
-
-      @media (max-width: 576px) {
-        .main-container {
-          padding: 20px 12px;
-        }
-
-        .panel-card,
-        .stat-card {
-          padding: 17px;
-        }
-
-        .stat-number {
-          font-size: 24px;
-        }
-      }
-    </style>
-  </head>
-
-  <body>
-    <!-- HEADER -->
-    <nav class="navbar">
-      <div class="container">
-        <div class="brand"><i class="bi bi-geo-alt-fill"></i> LiveTrack</div>
-        <span class="badge text-bg-primary">Admin Panel</span>
-      </div>
-    </nav>
-
-    <div class="main-container">
-      <!-- PAGE HEADING -->
-      <div class="mb-4">
-        <h3 class="fw-bold mb-1">Dashboard</h3>
-        <p class="muted mb-0">Manage your live location tracking users.</p>
-      </div>
-
-      <!-- STATISTICS -->
-      <div class="row g-3 mb-4">
-        <div class="col-6 col-lg-4">
-          <div class="stat-card">
-            <div class="stat-icon bg-primary-subtle text-primary">
-              <i class="bi bi-people-fill"></i>
-            </div>
-            <div class="stat-number" id="totalUsers">0</div>
-            <div class="stat-label">Total Users</div>
-          </div>
-        </div>
-
-        <div class="col-6 col-lg-4">
-          <div class="stat-card">
-            <div class="stat-icon bg-success-subtle text-success">
-              <i class="bi bi-broadcast"></i>
-            </div>
-            <div class="stat-number" id="onlineUsers">0</div>
-            <div class="stat-label">Online Users</div>
-          </div>
-        </div>
-
-        <div class="col-12 col-lg-4">
-          <div class="stat-card">
-            <div class="stat-icon bg-secondary-subtle text-secondary">
-              <i class="bi bi-person-dash"></i>
-            </div>
-            <div class="stat-number" id="offlineUsers">0</div>
-            <div class="stat-label">Offline Users</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CREATE USER -->
-      <div class="panel-card mb-4">
-        <h5 class="fw-bold mb-1">
-          <i class="bi bi-person-plus text-primary"></i>
-          Create Tracking User
-        </h5>
-
-        <p class="muted small mb-3">Enter user name to generate a unique tracking link.</p>
-
-        <div class="row g-2">
-          <div class="col-md-8">
-            <input type="text" id="userName" class="form-control" placeholder="Enter user name" maxlength="100" />
-          </div>
-
-          <div class="col-md-4">
-            <button id="createBtn" class="btn btn-primary w-100"><i class="bi bi-link-45deg"></i> Create Link</button>
-          </div>
-        </div>
-
-        <div id="createMsg" class="small mt-3"></div>
-
-        <!-- GENERATED LINK -->
-        <div id="createdBox" class="mt-3 d-none">
-          <label class="form-label fw-semibold"> Generated Tracking Link </label>
-
-          <div class="created-link mb-2" id="createdLink"></div>
-
-          <div class="d-flex flex-wrap gap-2">
-            <button id="copyBtn" class="btn btn-outline-primary btn-sm"><i class="bi bi-copy"></i> Copy Link</button>
-
-            <a id="whatsappBtn" href="#" target="_blank" rel="noopener" class="btn btn-success btn-sm">
-              <i class="bi bi-whatsapp"></i> Share on WhatsApp
-            </a>
-          </div>
-        </div>
-      </div>
-
-      <!-- USERS TABLE -->
-      <div class="panel-card">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-          <div>
-            <h5 class="fw-bold mb-1">All Users</h5>
-            <p class="muted small mb-0">Latest user details and location.</p>
-          </div>
-
-          <button id="refreshBtn" class="btn btn-outline-primary btn-sm"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
-        </div>
-
-        <div id="usersMsg" class="small mb-2"></div>
-
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead>
-              <tr>
-                <th>User Details</th>
-                <th>Status</th>
-                <th>Last Seen</th>
-                <th>Location</th>
-              </tr>
-            </thead>
-
-            <tbody id="usersBody">
-              <tr>
-                <td colspan="4" class="text-center muted py-5">Loading users...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="text-center muted small mt-4">LiveTrack Admin Panel</div>
+  <section class="panel mb-4">
+    <h5 class="fw-bold mb-1"><i class="bi bi-person-plus text-primary"></i> Create Tracking User</h5>
+    <p class="muted small mb-3">Enter a name to generate a unique tracking link.</p>
+    <div class="row g-2">
+      <div class="col-md-8"><input type="text" id="userName" class="form-control" placeholder="Enter user name" maxlength="100"></div>
+      <div class="col-md-4"><button id="createBtn" class="btn btn-primary w-100"><i class="bi bi-link-45deg"></i> Create Link</button></div>
     </div>
+    <div id="createMsg" class="small mt-3" role="status" aria-live="polite"></div>
 
-    <script>
-      $(document).ready(function () {
-        // GOOGLE APPS SCRIPT API URL
-        const API_URL = "https://script.google.com/macros/s/AKfycbzppe0FCogUVTZRAUskseZIakWPxW-afLfmB0Q-L9okHd8yjxfw265C59-TdtgNGUSotA/exec";
+    <div id="createdBox" class="mt-3 d-none">
+      <label class="form-label fw-semibold">Generated Tracking Link</label>
+      <div class="generated-link mb-2" id="createdLink"></div>
+      <div class="d-flex flex-wrap gap-2">
+        <button id="copyBtn" class="btn btn-outline-primary btn-sm"><i class="bi bi-copy"></i> Copy Link</button>
+        <a id="whatsappBtn" href="#" target="_blank" rel="noopener" class="btn btn-success btn-sm"><i class="bi bi-whatsapp"></i> Share on WhatsApp</a>
+      </div>
+    </div>
+  </section>
 
-        let latestLink = "";
+  <section class="panel">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <div><h5 class="fw-bold mb-1">All Users</h5><p class="muted small mb-0">Latest user details and location.</p></div>
+      <button id="refreshBtn" class="btn btn-outline-primary btn-sm"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+    </div>
+    <div id="usersMsg" class="small mb-2" role="status" aria-live="polite"></div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead><tr><th>User Details</th><th>Status</th><th>Created At</th><th>Last Seen</th><th>Location</th></tr></thead>
+        <tbody id="usersBody"><tr><td colspan="5" class="text-center muted py-5">Loading users...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+  <div class="text-center muted small mt-4">LiveTrack Admin Panel</div>
+</main>
 
-        // COMMON AJAX API FUNCTION
-        function api(data) {
-          return $.ajax({
-            url: API_URL,
-            type: "GET",
-            data: data,
-            dataType: "jsonp",
-            timeout: 30000,
-          }).then(function (response) {
-            if (!response || !response.ok) {
-              throw new Error(response && response.error ? response.error : "Server request failed");
-            }
+<script>
+$(function(){
+  // This URL is injected by Code.gs from the CURRENT Web App deployment.
+  const API_URL = <?!= JSON.stringify(apiUrl) ?>;
+  let latestLink = "";
 
-            return response.data;
-          });
-        }
+  function showMessage(id, message, isError){
+    $("#" + id).text(message)
+      .toggleClass("text-danger", !!isError)
+      .toggleClass("text-success", !isError);
+  }
 
-        // MESSAGE
-        function showMsg(id, message, error = false) {
-          $("#" + id)
-            .text(message)
-            .toggleClass("text-danger", error)
-            .toggleClass("text-success", !error);
-        }
+  function api(params){
+    if(!API_URL) return $.Deferred().reject(new Error("Web App URL missing. Deploy as Web App and open its /exec URL.")).promise();
 
-        // ESCAPE HTML
-        function escapeHtml(value) {
-          return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
-            return {
-              "&": "&amp;",
-              "<": "&lt;",
-              ">": "&gt;",
-              '"': "&quot;",
-              "'": "&#39;",
-            }[c];
-          });
-        }
+    return $.ajax({
+      url: API_URL,
+      type: "GET",
+      data: params,
+      dataType: "jsonp",
+      timeout: 30000,
+      cache: false
+    }).then(function(res){
+      if(!res || res.ok !== true) throw new Error(res && res.error ? res.error : "Unexpected API response.");
+      return res.data;
+    }).catch(function(xhrOrError){
+      const message = xhrOrError && xhrOrError.message ? xhrOrError.message : "API request failed. Check deployment access and Apps Script execution log.";
+      throw new Error(message);
+    });
+  }
 
-        // FORMAT DATE
-        function formatDate(value) {
-          if (!value) return "—";
+  function escapeHtml(value){
+    return String(value == null ? "" : value).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
 
-          const date = new Date(value);
+  function formatDate(value){
+    if(!value) return "—";
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? "—" : d.toLocaleString();
+  }
 
-          return isNaN(date.getTime()) ? "—" : date.toLocaleString();
-        }
+  function renderUsers(users){
+    const online = users.filter(u => u.status === "Online").length;
+    $("#totalUsers").text(users.length);
+    $("#onlineUsers").text(online);
+    $("#offlineUsers").text(users.length - online);
 
-        // CREATE USER
-        function createUser() {
-          const name = $("#userName").val().trim();
+    if(!users.length){
+      $("#usersBody").html('<tr><td colspan="5" class="text-center muted py-5">No users found. Create your first tracking link.</td></tr>');
+      showMessage("usersMsg", "Google Sheet connected. No user entries found yet.", false);
+      return;
+    }
 
-          if (!name) {
-            showMsg("createMsg", "Please enter user name.", true);
-            return;
-          }
+    const html = users.map(function(u){
+      const hasLoc = u.latitude !== null && u.longitude !== null &&
+        Number.isFinite(Number(u.latitude)) && Number.isFinite(Number(u.longitude));
+      const maps = hasLoc ? "https://www.google.com/maps?q=" +
+        encodeURIComponent(u.latitude + "," + u.longitude) : "";
+      const statusClass = u.status === "Online" ? "" : "offline";
 
-          $("#createBtn").prop("disabled", true).text("Creating...");
+      return `<tr>
+        <td><div class="fw-semibold">${escapeHtml(u.name)}</div><div class="small muted">${escapeHtml(u.userId)}</div></td>
+        <td><span class="status ${statusClass}">${escapeHtml(u.status || "Offline")}</span></td>
+        <td class="small">${escapeHtml(formatDate(u.createdAt))}</td>
+        <td class="small">${escapeHtml(formatDate(u.lastSeen))}</td>
+        <td>${hasLoc
+          ? `<a class="btn btn-outline-primary btn-sm" target="_blank" rel="noopener" href="${maps}"><i class="bi bi-geo-alt"></i> See Location</a>`
+          : '<span class="small muted">No location yet</span>'}</td>
+      </tr>`;
+    }).join("");
 
-          api({
-            api: "createUser",
-            name: name,
-          })
-            .then(function (data) {
-              if (!data || !data.link) {
-                throw new Error("Tracking link was not returned by API.");
-              }
+    $("#usersBody").html(html);
+    showMessage("usersMsg", "User list loaded from Google Sheet.", false);
+  }
 
-              latestLink = data.link;
+  function loadUsers(){
+    $("#refreshBtn").prop("disabled", true);
+    api({api:"getUsers"})
+      .then(function(users){
+        if(!Array.isArray(users)) throw new Error("Invalid users list returned by server.");
+        renderUsers(users);
+        $("#apiStatus").text("Google Sheets API connected").removeClass("text-danger").addClass("text-success");
+      })
+      .catch(function(err){
+        showMessage("usersMsg", "Could not load users: " + err.message, true);
+        $("#apiStatus").text("API connection failed: " + err.message).removeClass("text-success").addClass("text-danger");
+      })
+      .always(function(){ $("#refreshBtn").prop("disabled", false); });
+  }
 
-              $("#createdLink").text(latestLink);
-              $("#createdBox").removeClass("d-none");
+  function createUser(){
+    const name = $("#userName").val().trim();
+    if(!name){ showMessage("createMsg", "Please enter a user name.", true); $("#userName").focus(); return; }
 
-              $("#whatsappBtn").attr(
-                "href",
-                "https://wa.me/?text=" + encodeURIComponent("Please open this link to share your location:\n" + latestLink),
-              );
+    $("#createBtn").prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span> Creating...');
+    showMessage("createMsg", "Sending request to Google Sheets...", false);
 
-              $("#userName").val("");
-
-              showMsg("createMsg", "User created successfully.");
-
-              loadUsers();
-            })
-            .catch(function (error) {
-              showMsg("createMsg", error.message, true);
-            })
-            .always(function () {
-              $("#createBtn").prop("disabled", false).html('<i class="bi bi-link-45deg"></i> Create Link');
-            });
-        }
-
-        // LOAD ALL USERS
-        function loadUsers() {
-          $("#refreshBtn").prop("disabled", true);
-
-          api({
-            api: "getUsers",
-          })
-            .then(function (users) {
-              if (!Array.isArray(users)) {
-                throw new Error("Invalid users data received.");
-              }
-
-              renderUsers(users);
-            })
-            .catch(function (error) {
-              showMsg("usersMsg", error.message, true);
-            })
-            .always(function () {
-              $("#refreshBtn").prop("disabled", false);
-            });
-        }
-
-        // RENDER USERS
-        function renderUsers(users) {
-          const online = users.filter((user) => user.status === "Online").length;
-
-          $("#totalUsers").text(users.length);
-          $("#onlineUsers").text(online);
-          $("#offlineUsers").text(users.length - online);
-
-          if (!users.length) {
-            $("#usersBody").html(`
-                <tr>
-                    <td colspan="4" class="text-center muted py-5">
-                        No users found. Create your first tracking link.
-                    </td>
-                </tr>
-            `);
-
-            showMsg("usersMsg", "No users available.");
-            return;
-          }
-
-          const rows = users
-            .map(function (user) {
-              const hasLocation =
-                user.latitude !== null &&
-                user.longitude !== null &&
-                user.latitude !== "" &&
-                user.longitude !== "" &&
-                Number.isFinite(Number(user.latitude)) &&
-                Number.isFinite(Number(user.longitude));
-
-              const mapsUrl = hasLocation ? "https://www.google.com/maps?q=" + encodeURIComponent(user.latitude + "," + user.longitude) : "";
-
-              const statusClass = user.status === "Online" ? "" : "offline";
-
-              return `
-                <tr>
-                    <td>
-                        <div class="fw-semibold">
-                            ${escapeHtml(user.name)}
-                        </div>
-                        <div class="small muted">
-                            ${escapeHtml(user.userId)}
-                        </div>
-                    </td>
-
-                    <td>
-                        <span class="status ${statusClass}">
-                            ${escapeHtml(user.status || "Offline")}
-                        </span>
-                    </td>
-
-                    <td class="small">
-                        ${escapeHtml(formatDate(user.lastSeen))}
-                    </td>
-
-                    <td>
-                        ${
-                          hasLocation
-                            ? `
-                                <a href="${mapsUrl}"
-                                   target="_blank"
-                                   rel="noopener"
-                                   class="btn btn-outline-primary btn-sm">
-                                    <i class="bi bi-geo-alt"></i> See Location
-                                </a>
-                              `
-                            : `
-                                <span class="small muted">
-                                    No location yet
-                                </span>
-                              `
-                        }
-                    </td>
-                </tr>
-            `;
-            })
-            .join("");
-
-          $("#usersBody").html(rows);
-
-          showMsg("usersMsg", "User list updated successfully.");
-        }
-
-        // COPY TRACKING LINK
-        function copyLink() {
-          if (!latestLink) return;
-
-          if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard
-              .writeText(latestLink)
-              .then(function () {
-                showMsg("createMsg", "Tracking link copied.");
-              })
-              .catch(function () {
-                fallbackCopy();
-              });
-          } else {
-            fallbackCopy();
-          }
-        }
-
-        // FALLBACK COPY
-        function fallbackCopy() {
-          const textarea = $("<textarea>").val(latestLink).appendTo("body");
-
-          textarea.select();
-
-          const success = document.execCommand("copy");
-
-          textarea.remove();
-
-          showMsg("createMsg", success ? "Tracking link copied." : "Unable to copy link.", !success);
-        }
-
-        // BUTTON EVENTS
-        $("#createBtn").on("click", createUser);
-
-        $("#userName").on("keydown", function (e) {
-          if (e.key === "Enter") createUser();
-        });
-
-        $("#copyBtn").on("click", copyLink);
-
-        $("#refreshBtn").on("click", loadUsers);
-
-        // INITIAL LOAD
+    api({api:"createUser", name:name})
+      .then(function(data){
+        if(!data || !data.link) throw new Error("Server did not return a tracking link.");
+        latestLink = data.link;
+        $("#createdLink").text(latestLink);
+        $("#createdBox").removeClass("d-none");
+        $("#whatsappBtn").attr("href",
+          "https://wa.me/?text=" + encodeURIComponent("Please open this link to share your location:\n" + latestLink));
+        $("#userName").val("");
+        showMessage("createMsg", "Success! User " + data.userId + " saved to Google Sheet.", false);
         loadUsers();
+      })
+      .catch(function(err){
+        showMessage("createMsg", "NOT SAVED: " + err.message, true);
+      })
+      .always(function(){
+        $("#createBtn").prop("disabled", false).html('<i class="bi bi-link-45deg"></i> Create Link');
       });
-    </script>
-  </body>
+  }
+
+  function copyLink(){
+    if(!latestLink) return;
+    if(navigator.clipboard && window.isSecureContext){
+      navigator.clipboard.writeText(latestLink)
+        .then(() => showMessage("createMsg", "Tracking link copied.", false))
+        .catch(() => fallbackCopy());
+    } else fallbackCopy();
+  }
+
+  function fallbackCopy(){
+    const box = $("<textarea>").val(latestLink).appendTo("body");
+    box[0].select();
+    const ok = document.execCommand("copy");
+    box.remove();
+    showMessage("createMsg", ok ? "Tracking link copied." : "Unable to copy link.", !ok);
+  }
+
+  $("#createBtn").on("click", createUser);
+  $("#userName").on("keydown", function(e){ if(e.key === "Enter") createUser(); });
+  $("#copyBtn").on("click", copyLink);
+  $("#refreshBtn").on("click", loadUsers);
+
+  // Test API first, then populate table.
+  api({api:"ping"})
+    .then(function(info){
+      $("#apiStatus").text("Connected to: " + info.spreadsheet).removeClass("text-danger").addClass("text-success");
+      loadUsers();
+    })
+    .catch(function(err){
+      $("#apiStatus").text("API connection failed: " + err.message).removeClass("text-success").addClass("text-danger");
+      showMessage("usersMsg", "Connection failed: " + err.message, true);
+      $("#usersBody").html('<tr><td colspan="5" class="text-center text-danger py-5">Could not connect to Google Apps Script. See message above.</td></tr>');
+    });
+});
+</script>
+</body>
 </html>
