@@ -1,25 +1,24 @@
-const SHEET_ID = "1fmzWLyXqdvbpfKhuulRrJ6c2jEdRpOaueAkwQbRAT_";
+const SHEET_ID = "1dm1XZRWtPAUxVO5LuHakbrIM4lOJQfOisNocijmt-cU";
 
-// IMPORTANT: Change this before deployment. Keep it private.
-const ADMIN_PASSWORD = "CHANGE_THIS_TO_A_LONG_PRIVATE_PASSWORD";
+// CHANGE THIS to your own private password before deployment.
+const ADMIN_PASSWORD = "CHANGE_THIS_TO_A_PRIVATE_PASSWORD";
 
 const USERS_SHEET = "Users";
 const HISTORY_SHEET = "Location_History";
 
 function doGet(e) {
-  const page = (e && e.parameter && e.parameter.page) || "admin";
-
-  if (page === "track") {
+  const params = (e && e.parameter) || {};
+  if (params.page === "track") {
     const template = HtmlService.createTemplateFromFile("Tracker");
-    template.userId = String((e.parameter && e.parameter.id) || "");
-    template.token = String((e.parameter && e.parameter.token) || "");
+    template.userId = String(params.id || "");
+    template.token = String(params.token || "");
     return template.evaluate()
       .setTitle("Location Sharing")
       .addMetaTag("viewport", "width=device-width, initial-scale=1");
   }
 
   return HtmlService.createHtmlOutputFromFile("Index")
-    .setTitle("Live Location Admin")
+    .setTitle("Live Location Tracker - Admin")
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 
@@ -34,6 +33,7 @@ function setupSheets() {
       "Last Seen", "Latitude", "Longitude", "Accuracy", "Maps URL"
     ]);
     users.setFrozenRows(1);
+    users.getRange(1, 1, 1, 10).setFontWeight("bold");
   }
 
   let history = ss.getSheetByName(HISTORY_SHEET);
@@ -44,14 +44,15 @@ function setupSheets() {
       "Longitude", "Accuracy", "Maps URL"
     ]);
     history.setFrozenRows(1);
+    history.getRange(1, 1, 1, 7).setFontWeight("bold");
   }
 
-  return "Sheets are ready.";
+  return "Users and Location_History tabs are ready.";
 }
 
 function adminCheck_(password) {
-  if (!ADMIN_PASSWORD || ADMIN_PASSWORD === "CHANGE_THIS_TO_A_LONG_PRIVATE_PASSWORD") {
-    throw new Error("Admin password set nahi hai. Code.gs mein ADMIN_PASSWORD change karein.");
+  if (!ADMIN_PASSWORD || ADMIN_PASSWORD === "CHANGE_THIS_TO_A_PRIVATE_PASSWORD") {
+    throw new Error("Please set your private ADMIN_PASSWORD in Code.gs and deploy a new version.");
   }
   if (String(password || "") !== ADMIN_PASSWORD) {
     throw new Error("Incorrect admin password.");
@@ -62,7 +63,7 @@ function createUser(name, password) {
   adminCheck_(password);
   name = String(name || "").trim();
   if (!name) throw new Error("Please enter a user name.");
-  if (name.length > 80) throw new Error("Name is too long.");
+  if (name.length > 80) throw new Error("Name must be 80 characters or fewer.");
 
   setupSheets();
   const ss = SpreadsheetApp.openById(SHEET_ID);
@@ -74,10 +75,16 @@ function createUser(name, password) {
   sheet.appendRow([userId, name, token, createdAt, "Not started", "", "", "", "", ""]);
 
   const baseUrl = ScriptApp.getService().getUrl();
+  if (!baseUrl) throw new Error("Web App URL not found. Deploy this project as a Web App first.");
   const link = baseUrl + "?page=track&id=" + encodeURIComponent(userId) +
-               "&token=" + encodeURIComponent(token);
+    "&token=" + encodeURIComponent(token);
 
-  return { userId: userId, name: name, link: link, createdAt: createdAt.toISOString() };
+  return {
+    userId: userId,
+    name: name,
+    link: link,
+    createdAt: createdAt.toISOString()
+  };
 }
 
 function getUsers(password) {
@@ -88,19 +95,23 @@ function getUsers(password) {
   const values = sheet.getDataRange().getValues();
   if (values.length <= 1) return [];
 
-  return values.slice(1).map(function(r) {
-    return {
-      userId: String(r[0] || ""),
-      name: String(r[1] || ""),
-      createdAt: r[3] ? new Date(r[3]).toISOString() : "",
-      status: String(r[4] || "Not started"),
-      lastSeen: r[5] ? new Date(r[5]).toISOString() : "",
-      latitude: r[6] === "" ? null : Number(r[6]),
-      longitude: r[7] === "" ? null : Number(r[7]),
-      accuracy: r[8] === "" ? null : Number(r[8]),
-      mapsUrl: String(r[9] || "")
-    };
-  }).reverse();
+  return values.slice(1).filter(r => r[0]).map(r => ({
+    userId: String(r[0] || ""),
+    name: String(r[1] || ""),
+    createdAt: toIso_(r[3]),
+    status: String(r[4] || "Not started"),
+    lastSeen: toIso_(r[5]),
+    latitude: r[6] === "" || r[6] == null ? null : Number(r[6]),
+    longitude: r[7] === "" || r[7] == null ? null : Number(r[7]),
+    accuracy: r[8] === "" || r[8] == null ? null : Number(r[8]),
+    mapsUrl: String(r[9] || "")
+  })).reverse();
+}
+
+function toIso_(value) {
+  if (!value) return "";
+  const d = value instanceof Date ? value : new Date(value);
+  return isNaN(d.getTime()) ? "" : d.toISOString();
 }
 
 function saveLocation(userId, token, latitude, longitude, accuracy, clientTime) {
@@ -112,15 +123,14 @@ function saveLocation(userId, token, latitude, longitude, accuracy, clientTime) 
 
   if (!userId || !token) throw new Error("Invalid tracking link.");
   if (!isFinite(latitude) || !isFinite(longitude) ||
-      latitude < -90 || latitude > 90 ||
-      longitude < -180 || longitude > 180) {
-    throw new Error("Invalid coordinates.");
+      latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    throw new Error("Invalid GPS coordinates.");
   }
 
   const ss = SpreadsheetApp.openById(SHEET_ID);
-  let users = ss.getSheetByName(USERS_SHEET);
-  let history = ss.getSheetByName(HISTORY_SHEET);
-  if (!users || !history) throw new Error("Sheets are not initialized.");
+  const users = ss.getSheetByName(USERS_SHEET);
+  const history = ss.getSheetByName(HISTORY_SHEET);
+  if (!users || !history) throw new Error("Run setupSheets() first.");
 
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -142,17 +152,17 @@ function saveLocation(userId, token, latitude, longitude, accuracy, clientTime) 
     if (rowNumber === -1) throw new Error("Invalid or expired tracking link.");
 
     const timestamp = clientTime ? new Date(clientTime) : new Date();
+    const safeTimestamp = isNaN(timestamp.getTime()) ? new Date() : timestamp;
     const mapsUrl = "https://www.google.com/maps?q=" + latitude + "," + longitude;
     const now = new Date();
 
-    // Update the user's latest location row.
-    users.getRange(rowNumber, 5, 1, 6).setValues([[
-      "Online", now, latitude, longitude, accuracy || "", mapsUrl
-    ]]);
+    users.getRange(rowNumber, 5, 1, 6).setValues([
+      ["Online", now, latitude, longitude, isFinite(accuracy) ? accuracy : "", mapsUrl]
+    ]);
 
-    // Append every received point to the location history.
     history.appendRow([
-      userId, userName, timestamp, latitude, longitude, accuracy || "", mapsUrl
+      userId, userName, safeTimestamp, latitude, longitude,
+      isFinite(accuracy) ? accuracy : "", mapsUrl
     ]);
 
     return { ok: true, receivedAt: now.toISOString() };

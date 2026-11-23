@@ -1,37 +1,25 @@
-# Live Location Tracking System (Google Apps Script + Google Sheets)
+# Live Location Tracker (Google Apps Script + Google Sheets)
 
-## Included
-- `Code.gs` — Apps Script backend
-- `Index.html` — Admin panel: add a name, create/copy a unique link, list users, open latest location
-- `Tracker.html` — recipient page: clearly explains sharing, requests browser location permission, and starts while page is active
+## Files
+- `Code.gs` — server-side Apps Script and Sheet operations
+- `Index.html` — admin dashboard
+- `Tracker.html` — consent-based user tracking page
 
 ## Setup
-
-1. Open the Google Sheet with ID:
-   `1fmzWLyXqdvbpfKhuulRrJ6c2jEdRpOaueAkwQbRAT_`
+1. Open the Google Sheet:
+   `https://docs.google.com/spreadsheets/d/1dm1XZRWtPAUxVO5LuHakbrIM4lOJQfOisNocijmt-cU/edit`
 2. Open **Extensions → Apps Script**.
-3. Replace the default code with `Code.gs`.
-4. Add two HTML files in Apps Script:
-   - `Index` (paste `Index.html`)
-   - `Tracker` (paste `Tracker.html`)
-5. In `Code.gs`, change:
-   `ADMIN_PASSWORD = "CHANGE_THIS_TO_A_LONG_PRIVATE_PASSWORD"`
-   to a strong private password. Do not share it.
-6. Save. Run `setupSheets()` once from the Apps Script editor and approve the requested spreadsheet permissions.
-7. Deploy → New deployment → Web app:
-   - Execute as: **Me**
-   - Who has access: **Anyone** (needed for recipients who open a link; admin actions still require the password)
-8. Deploy and copy the Web App URL. Open it to use the admin panel.
-9. Enter the admin password, add a user's name, create a link, and share that link with the recipient.
+3. Replace the contents of `Code.gs` with the supplied `Code.gs`.
+4. Create two HTML files in Apps Script named exactly `Index` and `Tracker`. Paste the matching HTML into each.
+5. In `Code.gs`, change `ADMIN_PASSWORD` from the placeholder to a strong private password. Do not share it.
+6. Save. Select `setupSheets` from the function dropdown and click Run. Approve the requested Google Sheets permissions. This creates `Users` and `Location_History` tabs.
+7. Select **Deploy → New deployment → Web app**. Set **Execute as: Me** and **Who has access: Anyone** (or the appropriate access option for your use case). Deploy and authorize.
+8. Open the deployed `/exec` URL. Enter your admin password and click **Load users**. Create a test link and open it on a second phone.
+9. After code changes, use **Deploy → Manage deployments → Edit → New version → Deploy**. Refresh the `/exec` page.
 
-## Sheet tabs
-- `Users`: one row per user, including their unique ID, secret token, status and latest location.
-- `Location_History`: every location point received, tagged with User ID and timestamp.
-
-## Important limitations
-- Browser location requires HTTPS and the recipient's explicit location permission.
-- This web version tracks only while the tracking page remains active. Closing the page, browser restrictions, battery saving, or locking the phone can pause/stop updates.
-- A one-second interval is a target, not a guarantee. GPS hardware may not produce a new position every second, and Apps Script/Sheets quotas and latency limit high-volume writes.
-- Reliable background tracking on Android and iOS requires a separately built native app, platform-specific background-location permissions, and clear ongoing user disclosure/consent.
-- Anyone with a recipient's unique tracking link can cause that user's device to submit location while they use the page; treat links as private. If a link is exposed, delete that user's row/token in the `Users` sheet and create a replacement.
-- The admin password is checked server-side in Apps Script. Still, the Apps Script deployment is public so tracking links can be opened without Google sign-in. Keep the admin password private.
+## Important
+- Open the app through the deployed Apps Script `/exec` URL. Do not open the HTML files directly from your computer. The `google.script.run` bridge is provided by Apps Script HtmlService.
+- If you already have an old deployment URL, update that deployment to a new version. The script generates user links from its current deployment URL.
+- Location sharing is visible and consent-based. The recipient must tick the consent box and allow browser location access.
+- Browser `watchPosition()` is best-effort. A new GPS fix is not guaranteed every second. Browser pages generally cannot reliably track after they are closed, suspended, or the phone is locked. Reliable background tracking requires a properly disclosed native mobile app and platform permissions.
+- Treat tracking links as private. Anyone with a valid link can submit location data for that user.
