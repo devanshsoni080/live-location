@@ -1,30 +1,520 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LiveTrack Admin</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<style>
-:root{--navy:#14213d;--blue:#315efb;--muted:#718096}body{background:#f4f7fb;color:#172033;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}.topbar{background:var(--navy);color:#fff}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#48d597;margin-right:9px}.panel{border:0;border-radius:20px;box-shadow:0 10px 35px #18294a0b}.form-control{min-height:48px;border-radius:12px}.btn{border-radius:12px;min-height:44px;font-weight:600}.btn-primary{background:var(--blue);border-color:var(--blue)}.muted{color:var(--muted)}.table th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#718096;white-space:nowrap}.table td{vertical-align:middle;white-space:nowrap}.linkbox{background:#eff6ff;border-radius:12px;padding:12px;overflow-wrap:anywhere}.pill{font-size:12px;border-radius:30px;padding:6px 10px;background:#eef2f7}.stat{background:#f7f9fc;border-radius:16px;padding:16px}.hidden{display:none!important}@media(max-width:767px){.page-title{font-size:24px}.table{font-size:13px}}
-</style></head><body>
-<nav class="topbar py-3"><div class="container d-flex justify-content-between align-items-center"><div class="fw-bold fs-5"><span class="dot"></span>LiveTrack <span class="fw-normal opacity-75">Admin</span></div><span class="small opacity-75">Location dashboard</span></div></nav>
-<main class="container py-4 py-lg-5"><div class="mb-4"><h1 class="page-title fw-bold mb-1">Location dashboard</h1><p class="muted mb-0">Create private sharing links and view each user's latest shared location.</p></div>
-<div id="loginPanel" class="card panel p-4 mx-auto" style="max-width:460px"><h5 class="fw-bold">Admin login</h5><p class="muted small">Enter your private admin password to continue.</p><input id="adminPassword" type="password" class="form-control mb-3" placeholder="Admin password" autocomplete="current-password"><button id="loginBtn" class="btn btn-primary w-100">Login</button><div id="loginMsg" class="small mt-3" role="status"></div></div>
-<div id="dashboard" class="hidden"><div class="row g-4"><div class="col-lg-4"><div class="card panel p-4 mb-4"><h5 class="fw-bold mb-1">Create tracking link</h5><p class="muted small mb-4">Enter only the person's name. A unique ID and link will be created.</p><label class="form-label fw-semibold" for="userName">User name</label><input id="userName" maxlength="80" class="form-control mb-3" placeholder="e.g. Rahul"><button id="createBtn" class="btn btn-primary w-100">Create link</button><div id="createdBox" class="hidden mt-3"><div class="small fw-semibold mb-2">Tracking link created</div><div id="createdLink" class="linkbox small mb-2"></div><button id="copyBtn" class="btn btn-outline-primary w-100">Copy link</button></div><div id="createMsg" class="small mt-3" role="status"></div><p class="muted small mt-3 mb-0">The recipient must open the link, agree to share and allow GPS access.</p></div>
-<div class="card panel p-4"><div class="d-flex justify-content-between align-items-center"><h6 class="fw-bold mb-0">Admin session</h6><span class="pill">Protected</span></div><p class="muted small mt-2 mb-3">Your session is temporary and expires after 6 hours.</p><button id="logoutBtn" class="btn btn-outline-danger w-100">Logout</button></div></div>
-<div class="col-lg-8"><div class="card panel p-4"><div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><div><h5 class="fw-bold mb-1">All users</h5><div class="muted small">Latest shared locations and status</div></div><button id="refreshBtn" class="btn btn-outline-secondary btn-sm px-3">Refresh</button></div>
-<div class="row g-3 mb-3"><div class="col-sm-4"><div class="stat"><div class="muted small">Total users</div><div id="totalUsers" class="fs-3 fw-bold">0</div></div></div><div class="col-sm-4"><div class="stat"><div class="muted small">Sharing now</div><div id="onlineUsers" class="fs-3 fw-bold text-success">0</div></div></div><div class="col-sm-4"><div class="stat"><div class="muted small">Not sharing</div><div id="otherUsers" class="fs-3 fw-bold">0</div></div></div></div>
-<div class="table-responsive"><table class="table align-middle"><thead><tr><th>User</th><th>Status</th><th>Last update</th><th>Location</th></tr></thead><tbody id="usersBody"><tr><td colspan="4" class="text-center muted py-5">Loading users...</td></tr></tbody></table></div><div id="usersMsg" class="small mt-2" role="status"></div></div></div></div></div>
-</main>
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script><script>
-const API_URL=<?!= JSON.stringify(appUrl) ?>;let SESSION=sessionStorage.getItem('livetrack_admin_session')||'';let latestLink='';
-function api(data){return $.ajax({url:API_URL,type:'GET',data:data,dataType:'jsonp',timeout:30000}).then(r=>{if(!r||!r.ok)throw new Error(r&&r.error?r.error:'Server request failed');return r.data;});}
-function msg(id,text,error){$('#'+id).text(text).toggleClass('text-danger',!!error).toggleClass('text-success',!error);}
-function showDashboard(){ $('#loginPanel').addClass('hidden');$('#dashboard').removeClass('hidden');loadUsers(); }
-function login(){const password=$('#adminPassword').val();if(!password){msg('loginMsg','Enter admin password.',true);return;}$('#loginBtn').prop('disabled',true).text('Checking...');api({api:'login',password}).then(d=>{SESSION=d.session;sessionStorage.setItem('livetrack_admin_session',SESSION);showDashboard();}).catch(e=>msg('loginMsg',e.message,true)).always(()=>$('#loginBtn').prop('disabled',false).text('Login'));}
-function logout(){SESSION='';sessionStorage.removeItem('livetrack_admin_session');$('#dashboard').addClass('hidden');$('#loginPanel').removeClass('hidden');$('#adminPassword').val('');}
-function createLink(){const name=$('#userName').val().trim();if(!name){msg('createMsg','Please enter a name.',true);return;}$('#createBtn').prop('disabled',true).text('Creating...');api({api:'createUser',session:SESSION,name}).then(d=>{latestLink=d.link;$('#createdLink').text(d.link);$('#createdBox').removeClass('hidden');$('#userName').val('');msg('createMsg','User created successfully.');loadUsers();}).catch(e=>{msg('createMsg',e.message,true);if(e.message.toLowerCase().includes('session'))logout();}).always(()=>$('#createBtn').prop('disabled',false).text('Create link'));}
-function loadUsers(){if(!SESSION)return;$('#refreshBtn').prop('disabled',true);api({api:'getUsers',session:SESSION}).then(renderUsers).catch(e=>{msg('usersMsg',e.message,true);if(e.message.toLowerCase().includes('session'))logout();}).always(()=>$('#refreshBtn').prop('disabled',false));}
-function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function date(v){if(!v)return '—';const d=new Date(v);return isNaN(d)?'—':d.toLocaleString();}
-function renderUsers(users){$('#totalUsers').text(users.length);$('#onlineUsers').text(users.filter(x=>x.status==='Online').length);$('#otherUsers').text(users.filter(x=>x.status!=='Online').length);if(!users.length){$('#usersBody').html('<tr><td colspan="4" class="text-center muted py-5">No users yet. Create your first tracking link.</td></tr>');return;}$('#usersBody').html(users.map(u=>{const has=u.latitude!==null&&u.longitude!==null&&isFinite(u.latitude)&&isFinite(u.longitude);const url=has?'https://www.google.com/maps?q='+encodeURIComponent(u.latitude+','+u.longitude):'';return '<tr><td><div class="fw-semibold">'+esc(u.name)+'</div><div class="small muted">'+esc(u.userId)+'</div></td><td><span class="pill">'+esc(u.status)+'</span></td><td class="small">'+esc(date(u.lastSeen))+'</td><td>'+(has?'<a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="'+url+'">See location</a>':'<span class="small muted">No location yet</span>')+'</td></tr>';}).join(''));msg('usersMsg','User list updated.');}
-$('#loginBtn').on('click',login);$('#adminPassword').on('keydown',e=>{if(e.key==='Enter')login();});$('#logoutBtn').on('click',logout);$('#createBtn').on('click',createLink);$('#refreshBtn').on('click',loadUsers);$('#copyBtn').on('click',function(){if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(latestLink).then(()=>msg('createMsg','Tracking link copied.')).catch(()=>fallbackCopy());}else fallbackCopy();});function fallbackCopy(){const t=$('<textarea>').val(latestLink).appendTo('body').select();document.execCommand('copy');t.remove();msg('createMsg','Tracking link copied.');}
-if(SESSION)showDashboard();
-</script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LiveTrack - Admin Panel</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <style>
+      :root {
+        --primary: #2563eb;
+        --dark: #172033;
+        --muted: #64748b;
+      }
+
+      body {
+        background: #f4f7fb;
+        color: var(--dark);
+        font-family: Arial, sans-serif;
+      }
+
+      .navbar {
+        background: #fff;
+        border-bottom: 1px solid #e9edf4;
+        padding: 16px 0;
+      }
+
+      .brand {
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--primary);
+      }
+
+      .main-container {
+        max-width: 1150px;
+        margin: auto;
+        padding: 30px 15px;
+      }
+
+      .stat-card,
+      .panel-card {
+        background: #fff;
+        border: 1px solid #edf0f5;
+        border-radius: 15px;
+        padding: 22px;
+      }
+
+      .stat-card {
+        height: 100%;
+      }
+
+      .stat-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 21px;
+        margin-bottom: 13px;
+      }
+
+      .stat-number {
+        font-size: 28px;
+        font-weight: 800;
+      }
+
+      .stat-label {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .form-control {
+        min-height: 46px;
+        border-radius: 9px;
+      }
+
+      .btn {
+        border-radius: 9px;
+      }
+
+      .btn-primary {
+        background: var(--primary);
+        border-color: var(--primary);
+      }
+
+      .table th {
+        background: #f8fafc;
+        color: #64748b;
+        font-size: 12px;
+        text-transform: uppercase;
+        white-space: nowrap;
+        padding: 15px;
+      }
+
+      .table td {
+        padding: 15px;
+        vertical-align: middle;
+      }
+
+      .status {
+        padding: 6px 11px;
+        border-radius: 30px;
+        font-size: 12px;
+        font-weight: 600;
+        background: #dcfce7;
+        color: #15803d;
+      }
+
+      .status.offline {
+        background: #f1f5f9;
+        color: #64748b;
+      }
+
+      .created-link {
+        background: #f1f5f9;
+        padding: 13px;
+        border-radius: 9px;
+        overflow-wrap: anywhere;
+        font-size: 13px;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      @media (max-width: 576px) {
+        .main-container {
+          padding: 20px 12px;
+        }
+
+        .panel-card,
+        .stat-card {
+          padding: 17px;
+        }
+
+        .stat-number {
+          font-size: 24px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- HEADER -->
+    <nav class="navbar">
+      <div class="container">
+        <div class="brand"><i class="bi bi-geo-alt-fill"></i> LiveTrack</div>
+        <span class="badge text-bg-primary">Admin Panel</span>
+      </div>
+    </nav>
+
+    <div class="main-container">
+      <!-- PAGE HEADING -->
+      <div class="mb-4">
+        <h3 class="fw-bold mb-1">Dashboard</h3>
+        <p class="muted mb-0">Manage your live location tracking users.</p>
+      </div>
+
+      <!-- STATISTICS -->
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-4">
+          <div class="stat-card">
+            <div class="stat-icon bg-primary-subtle text-primary">
+              <i class="bi bi-people-fill"></i>
+            </div>
+            <div class="stat-number" id="totalUsers">0</div>
+            <div class="stat-label">Total Users</div>
+          </div>
+        </div>
+
+        <div class="col-6 col-lg-4">
+          <div class="stat-card">
+            <div class="stat-icon bg-success-subtle text-success">
+              <i class="bi bi-broadcast"></i>
+            </div>
+            <div class="stat-number" id="onlineUsers">0</div>
+            <div class="stat-label">Online Users</div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+          <div class="stat-card">
+            <div class="stat-icon bg-secondary-subtle text-secondary">
+              <i class="bi bi-person-dash"></i>
+            </div>
+            <div class="stat-number" id="offlineUsers">0</div>
+            <div class="stat-label">Offline Users</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CREATE USER -->
+      <div class="panel-card mb-4">
+        <h5 class="fw-bold mb-1">
+          <i class="bi bi-person-plus text-primary"></i>
+          Create Tracking User
+        </h5>
+
+        <p class="muted small mb-3">Enter user name to generate a unique tracking link.</p>
+
+        <div class="row g-2">
+          <div class="col-md-8">
+            <input type="text" id="userName" class="form-control" placeholder="Enter user name" maxlength="100" />
+          </div>
+
+          <div class="col-md-4">
+            <button id="createBtn" class="btn btn-primary w-100"><i class="bi bi-link-45deg"></i> Create Link</button>
+          </div>
+        </div>
+
+        <div id="createMsg" class="small mt-3"></div>
+
+        <!-- GENERATED LINK -->
+        <div id="createdBox" class="mt-3 d-none">
+          <label class="form-label fw-semibold"> Generated Tracking Link </label>
+
+          <div class="created-link mb-2" id="createdLink"></div>
+
+          <div class="d-flex flex-wrap gap-2">
+            <button id="copyBtn" class="btn btn-outline-primary btn-sm"><i class="bi bi-copy"></i> Copy Link</button>
+
+            <a id="whatsappBtn" href="#" target="_blank" rel="noopener" class="btn btn-success btn-sm">
+              <i class="bi bi-whatsapp"></i> Share on WhatsApp
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- USERS TABLE -->
+      <div class="panel-card">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <div>
+            <h5 class="fw-bold mb-1">All Users</h5>
+            <p class="muted small mb-0">Latest user details and location.</p>
+          </div>
+
+          <button id="refreshBtn" class="btn btn-outline-primary btn-sm"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+        </div>
+
+        <div id="usersMsg" class="small mb-2"></div>
+
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>User Details</th>
+                <th>Status</th>
+                <th>Last Seen</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+
+            <tbody id="usersBody">
+              <tr>
+                <td colspan="4" class="text-center muted py-5">Loading users...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="text-center muted small mt-4">LiveTrack Admin Panel</div>
+    </div>
+
+    <script>
+      $(document).ready(function () {
+        // GOOGLE APPS SCRIPT API URL
+        const API_URL = "https://script.google.com/macros/s/AKfycbwa-WNArAUUNmgG3Syd6inCnsSG77OfozKAsIQRadqYhLbZE49q0FSXke6gaQ3fqxftrg/exec";
+
+        let latestLink = "";
+
+        // COMMON AJAX API FUNCTION
+        function api(data) {
+          return $.ajax({
+            url: API_URL,
+            type: "GET",
+            data: data,
+            dataType: "jsonp",
+            timeout: 30000,
+          }).then(function (response) {
+            if (!response || !response.ok) {
+              throw new Error(response && response.error ? response.error : "Server request failed");
+            }
+
+            return response.data;
+          });
+        }
+
+        // MESSAGE
+        function showMsg(id, message, error = false) {
+          $("#" + id)
+            .text(message)
+            .toggleClass("text-danger", error)
+            .toggleClass("text-success", !error);
+        }
+
+        // ESCAPE HTML
+        function escapeHtml(value) {
+          return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+            return {
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            }[c];
+          });
+        }
+
+        // FORMAT DATE
+        function formatDate(value) {
+          if (!value) return "—";
+
+          const date = new Date(value);
+
+          return isNaN(date.getTime()) ? "—" : date.toLocaleString();
+        }
+
+        // CREATE USER
+        function createUser() {
+          const name = $("#userName").val().trim();
+
+          if (!name) {
+            showMsg("createMsg", "Please enter user name.", true);
+            return;
+          }
+
+          $("#createBtn").prop("disabled", true).text("Creating...");
+
+          api({
+            api: "createUser",
+            name: name,
+          })
+            .then(function (data) {
+              if (!data || !data.link) {
+                throw new Error("Tracking link was not returned by API.");
+              }
+
+              latestLink = data.link;
+
+              $("#createdLink").text(latestLink);
+              $("#createdBox").removeClass("d-none");
+
+              $("#whatsappBtn").attr(
+                "href",
+                "https://wa.me/?text=" + encodeURIComponent("Please open this link to share your location:\n" + latestLink),
+              );
+
+              $("#userName").val("");
+
+              showMsg("createMsg", "User created successfully.");
+
+              loadUsers();
+            })
+            .catch(function (error) {
+              showMsg("createMsg", error.message, true);
+            })
+            .always(function () {
+              $("#createBtn").prop("disabled", false).html('<i class="bi bi-link-45deg"></i> Create Link');
+            });
+        }
+
+        // LOAD ALL USERS
+        function loadUsers() {
+          $("#refreshBtn").prop("disabled", true);
+
+          api({
+            api: "getUsers",
+          })
+            .then(function (users) {
+              if (!Array.isArray(users)) {
+                throw new Error("Invalid users data received.");
+              }
+
+              renderUsers(users);
+            })
+            .catch(function (error) {
+              showMsg("usersMsg", error.message, true);
+            })
+            .always(function () {
+              $("#refreshBtn").prop("disabled", false);
+            });
+        }
+
+        // RENDER USERS
+        function renderUsers(users) {
+          const online = users.filter((user) => user.status === "Online").length;
+
+          $("#totalUsers").text(users.length);
+          $("#onlineUsers").text(online);
+          $("#offlineUsers").text(users.length - online);
+
+          if (!users.length) {
+            $("#usersBody").html(`
+                <tr>
+                    <td colspan="4" class="text-center muted py-5">
+                        No users found. Create your first tracking link.
+                    </td>
+                </tr>
+            `);
+
+            showMsg("usersMsg", "No users available.");
+            return;
+          }
+
+          const rows = users
+            .map(function (user) {
+              const hasLocation =
+                user.latitude !== null &&
+                user.longitude !== null &&
+                user.latitude !== "" &&
+                user.longitude !== "" &&
+                Number.isFinite(Number(user.latitude)) &&
+                Number.isFinite(Number(user.longitude));
+
+              const mapsUrl = hasLocation ? "https://www.google.com/maps?q=" + encodeURIComponent(user.latitude + "," + user.longitude) : "";
+
+              const statusClass = user.status === "Online" ? "" : "offline";
+
+              return `
+                <tr>
+                    <td>
+                        <div class="fw-semibold">
+                            ${escapeHtml(user.name)}
+                        </div>
+                        <div class="small muted">
+                            ${escapeHtml(user.userId)}
+                        </div>
+                    </td>
+
+                    <td>
+                        <span class="status ${statusClass}">
+                            ${escapeHtml(user.status || "Offline")}
+                        </span>
+                    </td>
+
+                    <td class="small">
+                        ${escapeHtml(formatDate(user.lastSeen))}
+                    </td>
+
+                    <td>
+                        ${
+                          hasLocation
+                            ? `
+                                <a href="${mapsUrl}"
+                                   target="_blank"
+                                   rel="noopener"
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-geo-alt"></i> See Location
+                                </a>
+                              `
+                            : `
+                                <span class="small muted">
+                                    No location yet
+                                </span>
+                              `
+                        }
+                    </td>
+                </tr>
+            `;
+            })
+            .join("");
+
+          $("#usersBody").html(rows);
+
+          showMsg("usersMsg", "User list updated successfully.");
+        }
+
+        // COPY TRACKING LINK
+        function copyLink() {
+          if (!latestLink) return;
+
+          if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard
+              .writeText(latestLink)
+              .then(function () {
+                showMsg("createMsg", "Tracking link copied.");
+              })
+              .catch(function () {
+                fallbackCopy();
+              });
+          } else {
+            fallbackCopy();
+          }
+        }
+
+        // FALLBACK COPY
+        function fallbackCopy() {
+          const textarea = $("<textarea>").val(latestLink).appendTo("body");
+
+          textarea.select();
+
+          const success = document.execCommand("copy");
+
+          textarea.remove();
+
+          showMsg("createMsg", success ? "Tracking link copied." : "Unable to copy link.", !success);
+        }
+
+        // BUTTON EVENTS
+        $("#createBtn").on("click", createUser);
+
+        $("#userName").on("keydown", function (e) {
+          if (e.key === "Enter") createUser();
+        });
+
+        $("#copyBtn").on("click", copyLink);
+
+        $("#refreshBtn").on("click", loadUsers);
+
+        // INITIAL LOAD
+        loadUsers();
+      });
+    </script>
+  </body>
+</html>
