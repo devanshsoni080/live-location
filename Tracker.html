@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Location Sharing</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body{background:#f4f7fb;color:#172033;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+    .share-card{max-width:520px;margin:8vh auto;border:0;border-radius:20px;box-shadow:0 12px 40px rgba(20,40,80,.09)}
+    .pulse{width:10px;height:10px;border-radius:50%;background:#16a34a;display:inline-block;box-shadow:0 0 0 5px #dcfce7}
+  </style>
+</head>
+<body>
+<div class="container px-3">
+  <div class="card share-card">
+    <div class="card-body p-4 p-md-5">
+      <div class="d-flex align-items-center gap-2 mb-3"><span class="pulse"></span><span class="small fw-semibold text-success">LOCATION SHARING</span></div>
+      <h3 class="fw-bold">Share your location</h3>
+      <p class="text-secondary">This page will share your device's current location with the person who sent you this link. Your location is saved with a timestamp. Sharing continues only while this page is active and your browser allows location access.</p>
+      <div class="alert alert-info small">By allowing location access, you agree to share your live location. You can stop sharing at any time using the button below or revoke location permission in your browser settings.</div>
+      <div id="status" class="alert alert-secondary">Waiting for location permission…</div>
+      <div class="d-flex align-items-center justify-content-between small text-secondary mb-3">
+        <span>User ID: <strong id="uid"></strong></span><span id="lastSent">Not started</span>
+      </div>
+      <button id="stopBtn" class="btn btn-outline-danger w-100" disabled>Stop sharing</button>
+      <p class="small text-secondary mt-3 mb-0">Target update interval: about 1 second when the browser and GPS permit. Actual updates may be slower. Closing this page stops browser-based tracking.</p>
+    </div>
+  </div>
+</div>
+<script>
+const USER_ID = <?!= JSON.stringify(userId) ?>;
+const TOKEN = <?!= JSON.stringify(token) ?>;
+const $ = id => document.getElementById(id);
+$("uid").textContent=USER_ID||"Invalid";
+let watchId=null, timerId=null, latestPosition=null, running=false, sending=false;
+
+function setStatus(message, type="secondary"){
+  $("status").className="alert alert-"+type;
+  $("status").textContent=message;
+}
+function saveCurrentPosition(){
+  if(!running || !latestPosition || sending) return;
+  sending=true;
+  const c=latestPosition.coords;
+  google.script.run
+    .withSuccessHandler(()=>{
+      sending=false;
+      $("lastSent").textContent="Updated "+new Date().toLocaleTimeString();
+      setStatus("Your location is being shared.", "success");
+    })
+    .withFailureHandler(err=>{
+      sending=false;
+      setStatus("Could not send location: "+(err.message||err), "danger");
+    })
+    .saveLocation(USER_ID,TOKEN,c.latitude,c.longitude,c.accuracy,new Date(latestPosition.timestamp).toISOString());
+}
+function stopSharing(){
+  running=false;
+  if(watchId!==null) navigator.geolocation.clearWatch(watchId);
+  if(timerId!==null) clearInterval(timerId);
+  watchId=null;timerId=null;
+  $("stopBtn").disabled=true;
+  setStatus("Location sharing has stopped. You can close this page.", "secondary");
+}
+function startSharing(){
+  if(!USER_ID || !TOKEN){setStatus("This tracking link is invalid.", "danger");return;}
+  if(!navigator.geolocation){setStatus("This browser does not support location access.", "danger");return;}
+  if(!window.isSecureContext){setStatus("Location sharing requires a secure HTTPS link.", "danger");return;}
+  running=true;
+  $("stopBtn").disabled=false;
+  setStatus("Requesting location permission…","info");
+  watchId=navigator.geolocation.watchPosition(pos=>{
+    latestPosition=pos;
+    saveCurrentPosition();
+  },err=>{
+    const messages={1:"Location permission was denied. Allow location access in browser settings to share.",2:"Your device could not determine a location. Check GPS/location services.",3:"Location request timed out. Waiting and trying again."};
+    setStatus(messages[err.code]||err.message,"warning");
+  },{enableHighAccuracy:true,maximumAge:0,timeout:20000});
+  // Sends the most recently received GPS fix at an approximately one-second target.
+  timerId=setInterval(saveCurrentPosition,1000);
+}
+$("stopBtn").addEventListener("click",stopSharing);
+window.addEventListener("pagehide",()=>{
+  if(watchId!==null) navigator.geolocation.clearWatch(watchId);
+  if(timerId!==null) clearInterval(timerId);
+});
+startSharing();
+</script>
+</body>
+</html>
