@@ -1,174 +1,30 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Live Location Tracker</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    :root{--navy:#14213d;--blue:#2563eb;--muted:#64748b}
-    body{background:#f4f7fb;color:#172033;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
-    .topbar{background:var(--navy);color:#fff}
-    .brand-dot{display:inline-block;width:10px;height:10px;background:#42d392;border-radius:50%;margin-right:9px}
-    .panel{border:0;border-radius:20px;box-shadow:0 8px 30px rgba(15,23,42,.06)}
-    .form-control{min-height:48px;border-radius:12px}
-    .btn{border-radius:12px;min-height:46px;font-weight:600}
-    .btn-primary{background:var(--blue);border-color:var(--blue)}
-    .muted{color:var(--muted)}
-    .table thead th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;white-space:nowrap}
-    .table td{vertical-align:middle;white-space:nowrap}
-    .link-box{overflow-wrap:anywhere;background:#eff6ff;border-radius:12px;padding:12px}
-    .status-pill{border-radius:30px;padding:5px 10px;font-size:12px;background:#f1f5f9}
-    @media(max-width:767px){.page-title{font-size:23px}.table-responsive{font-size:13px}}
-  </style>
-</head>
-<body>
-<nav class="topbar py-3">
-  <div class="container d-flex justify-content-between align-items-center">
-    <div class="fw-bold fs-5"><span class="brand-dot"></span>LiveTrack <span class="fw-normal opacity-75">Admin</span></div>
-    <span class="small opacity-75">Location management</span>
-  </div>
-</nav>
-<main class="container py-4 py-lg-5">
-  <div class="mb-4">
-    <h1 class="page-title fw-bold mb-1">Location dashboard</h1>
-    <p class="muted mb-0">Create a personal sharing link and view the latest location shared by each user.</p>
-  </div>
-  <div class="row g-4">
-    <div class="col-lg-4">
-      <div class="card panel p-4 mb-4">
-        <h5 class="fw-bold mb-1">Create tracking link</h5>
-        <p class="muted small mb-4">Enter a name. A unique link will be generated for that person.</p>
-        <label for="userName" class="form-label fw-semibold">User name</label>
-        <input id="userName" class="form-control mb-3" maxlength="80" placeholder="e.g. Rahul">
-        <button id="createBtn" class="btn btn-primary w-100" onclick="createLink()">Create link</button>
-        <div id="createdBox" class="mt-3 d-none">
-          <div class="small fw-semibold mb-2">Tracking link created</div>
-          <div id="createdLink" class="link-box small mb-2"></div>
-          <button class="btn btn-outline-primary w-100" onclick="copyCreatedLink()">Copy link</button>
-        </div>
-        <p class="muted small mt-3 mb-0">The recipient must open the link and allow location access. Sharing remains visible to them.</p>
-      </div>
-      <div class="card panel p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="fw-bold mb-0">Admin access</h5><span class="status-pill">Protected</span>
-        </div>
-        <label for="adminPassword" class="form-label">Admin password</label>
-        <input id="adminPassword" type="password" class="form-control mb-3" placeholder="Enter admin password" autocomplete="current-password">
-        <button id="loadBtn" class="btn btn-dark w-100" onclick="loadUsers()">Load users</button>
-        <div class="muted small mt-2">Set this password in Code.gs before deployment.</div>
-      </div>
-    </div>
-    <div class="col-lg-8">
-      <div class="card panel p-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-          <div><h5 class="fw-bold mb-1">All users</h5><div class="muted small">Latest locations and sharing status</div></div>
-          <button class="btn btn-outline-secondary btn-sm px-3" onclick="loadUsers()">Refresh</button>
-        </div>
-        <div class="row g-3 mb-3">
-          <div class="col-sm-4"><div class="bg-light rounded-4 p-3"><div class="muted small">Total users</div><div id="totalUsers" class="fs-3 fw-bold">—</div></div></div>
-          <div class="col-sm-4"><div class="bg-light rounded-4 p-3"><div class="muted small">Sharing online</div><div id="onlineUsers" class="fs-3 fw-bold">—</div></div></div>
-          <div class="col-sm-4"><div class="bg-light rounded-4 p-3"><div class="muted small">Not started</div><div id="pendingUsers" class="fs-3 fw-bold">—</div></div></div>
-        </div>
-        <div id="message" class="small mb-3" role="status"></div>
-        <div class="table-responsive">
-          <table class="table align-middle">
-            <thead><tr><th>User</th><th>Status</th><th>Last update</th><th>Location</th></tr></thead>
-            <tbody id="usersBody"><tr><td colspan="4" class="text-center muted py-5">Enter admin password and select Load users.</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-      <p class="muted small mt-3">Note: Browser-based location sharing works while the tracking page remains active. It is not reliable in the background or after the browser is closed.</p>
-    </div>
-  </div>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LiveTrack Admin</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+:root{--navy:#14213d;--blue:#315efb;--muted:#718096}body{background:#f4f7fb;color:#172033;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}.topbar{background:var(--navy);color:#fff}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#48d597;margin-right:9px}.panel{border:0;border-radius:20px;box-shadow:0 10px 35px #18294a0b}.form-control{min-height:48px;border-radius:12px}.btn{border-radius:12px;min-height:44px;font-weight:600}.btn-primary{background:var(--blue);border-color:var(--blue)}.muted{color:var(--muted)}.table th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#718096;white-space:nowrap}.table td{vertical-align:middle;white-space:nowrap}.linkbox{background:#eff6ff;border-radius:12px;padding:12px;overflow-wrap:anywhere}.pill{font-size:12px;border-radius:30px;padding:6px 10px;background:#eef2f7}.stat{background:#f7f9fc;border-radius:16px;padding:16px}.hidden{display:none!important}@media(max-width:767px){.page-title{font-size:24px}.table{font-size:13px}}
+</style></head><body>
+<nav class="topbar py-3"><div class="container d-flex justify-content-between align-items-center"><div class="fw-bold fs-5"><span class="dot"></span>LiveTrack <span class="fw-normal opacity-75">Admin</span></div><span class="small opacity-75">Location dashboard</span></div></nav>
+<main class="container py-4 py-lg-5"><div class="mb-4"><h1 class="page-title fw-bold mb-1">Location dashboard</h1><p class="muted mb-0">Create private sharing links and view each user's latest shared location.</p></div>
+<div id="loginPanel" class="card panel p-4 mx-auto" style="max-width:460px"><h5 class="fw-bold">Admin login</h5><p class="muted small">Enter your private admin password to continue.</p><input id="adminPassword" type="password" class="form-control mb-3" placeholder="Admin password" autocomplete="current-password"><button id="loginBtn" class="btn btn-primary w-100">Login</button><div id="loginMsg" class="small mt-3" role="status"></div></div>
+<div id="dashboard" class="hidden"><div class="row g-4"><div class="col-lg-4"><div class="card panel p-4 mb-4"><h5 class="fw-bold mb-1">Create tracking link</h5><p class="muted small mb-4">Enter only the person's name. A unique ID and link will be created.</p><label class="form-label fw-semibold" for="userName">User name</label><input id="userName" maxlength="80" class="form-control mb-3" placeholder="e.g. Rahul"><button id="createBtn" class="btn btn-primary w-100">Create link</button><div id="createdBox" class="hidden mt-3"><div class="small fw-semibold mb-2">Tracking link created</div><div id="createdLink" class="linkbox small mb-2"></div><button id="copyBtn" class="btn btn-outline-primary w-100">Copy link</button></div><div id="createMsg" class="small mt-3" role="status"></div><p class="muted small mt-3 mb-0">The recipient must open the link, agree to share and allow GPS access.</p></div>
+<div class="card panel p-4"><div class="d-flex justify-content-between align-items-center"><h6 class="fw-bold mb-0">Admin session</h6><span class="pill">Protected</span></div><p class="muted small mt-2 mb-3">Your session is temporary and expires after 6 hours.</p><button id="logoutBtn" class="btn btn-outline-danger w-100">Logout</button></div></div>
+<div class="col-lg-8"><div class="card panel p-4"><div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><div><h5 class="fw-bold mb-1">All users</h5><div class="muted small">Latest shared locations and status</div></div><button id="refreshBtn" class="btn btn-outline-secondary btn-sm px-3">Refresh</button></div>
+<div class="row g-3 mb-3"><div class="col-sm-4"><div class="stat"><div class="muted small">Total users</div><div id="totalUsers" class="fs-3 fw-bold">0</div></div></div><div class="col-sm-4"><div class="stat"><div class="muted small">Sharing now</div><div id="onlineUsers" class="fs-3 fw-bold text-success">0</div></div></div><div class="col-sm-4"><div class="stat"><div class="muted small">Not sharing</div><div id="otherUsers" class="fs-3 fw-bold">0</div></div></div></div>
+<div class="table-responsive"><table class="table align-middle"><thead><tr><th>User</th><th>Status</th><th>Last update</th><th>Location</th></tr></thead><tbody id="usersBody"><tr><td colspan="4" class="text-center muted py-5">Loading users...</td></tr></tbody></table></div><div id="usersMsg" class="small mt-2" role="status"></div></div></div></div></div>
 </main>
-<script>
-  let latestCreatedLink = "";
-  function setMessage(text, type) {
-    const el = document.getElementById("message");
-    el.className = "small mb-3 " + (type === "error" ? "text-danger" : "text-success");
-    el.textContent = text || "";
-  }
-  function apiReady() {
-    if (window.google && google.script && google.script.run) return true;
-    setMessage("Google Apps Script connection nahi mila. Is page ko Apps Script ke deployed /exec URL se open karein; HTML file ko direct open na karein.", "error");
-    return false;
-  }
-  function password() { return document.getElementById("adminPassword").value; }
-  function createLink() {
-    if (!apiReady()) return;
-    const name = document.getElementById("userName").value.trim();
-    if (!name) { setMessage("Please enter a user name.", "error"); return; }
-    if (!password()) { setMessage("Please enter admin password first.", "error"); return; }
-    const btn = document.getElementById("createBtn");
-    btn.disabled = true; btn.textContent = "Creating...";
-    google.script.run
-      .withSuccessHandler(function(result) {
-        latestCreatedLink = result.link;
-        document.getElementById("createdLink").textContent = result.link;
-        document.getElementById("createdBox").classList.remove("d-none");
-        document.getElementById("userName").value = "";
-        setMessage("Tracking link successfully created for " + result.name + ".", "success");
-        btn.disabled = false; btn.textContent = "Create link";
-        loadUsers();
-      })
-      .withFailureHandler(function(error) {
-        setMessage(error && error.message ? error.message : String(error), "error");
-        btn.disabled = false; btn.textContent = "Create link";
-      }).createUser(name, password());
-  }
-  async function copyCreatedLink() {
-    if (!latestCreatedLink) return;
-    try {
-      await navigator.clipboard.writeText(latestCreatedLink);
-      setMessage("Link copied. You can share it with the user.", "success");
-    } catch(e) {
-      setMessage("Copy not available. Select and copy the link shown above.", "error");
-    }
-  }
-  function loadUsers() {
-    if (!apiReady()) return;
-    if (!password()) { setMessage("Please enter admin password.", "error"); return; }
-    const btn = document.getElementById("loadBtn");
-    btn.disabled = true; btn.textContent = "Loading...";
-    google.script.run
-      .withSuccessHandler(function(users) {
-        renderUsers(users || []);
-        setMessage("User list updated.", "success");
-        btn.disabled = false; btn.textContent = "Load users";
-      })
-      .withFailureHandler(function(error) {
-        setMessage(error && error.message ? error.message : String(error), "error");
-        btn.disabled = false; btn.textContent = "Load users";
-      }).getUsers(password());
-  }
-  function esc(value) {
-    return String(value == null ? "" : value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  }
-  function formatDate(value) {
-    if (!value) return "—";
-    const d = new Date(value);
-    return isNaN(d.getTime()) ? "—" : d.toLocaleString();
-  }
-  function renderUsers(users) {
-    document.getElementById("totalUsers").textContent = users.length;
-    document.getElementById("onlineUsers").textContent = users.filter(u => u.status === "Online").length;
-    document.getElementById("pendingUsers").textContent = users.filter(u => u.status !== "Online").length;
-    const body = document.getElementById("usersBody");
-    if (!users.length) {
-      body.innerHTML = '<tr><td colspan="4" class="text-center muted py-5">No users yet. Create your first tracking link.</td></tr>';
-      return;
-    }
-    body.innerHTML = users.map(u => {
-      const hasLocation = u.latitude !== null && u.longitude !== null && isFinite(u.latitude) && isFinite(u.longitude);
-      const mapUrl = hasLocation ? "https://www.google.com/maps?q=" + encodeURIComponent(u.latitude + "," + u.longitude) : "";
-      return '<tr><td><div class="fw-semibold">' + esc(u.name) + '</div><div class="small muted">' + esc(u.userId) + '</div></td>' +
-        '<td><span class="status-pill">' + esc(u.status || "Not started") + '</span></td>' +
-        '<td class="small">' + esc(formatDate(u.lastSeen)) + '</td>' +
-        '<td>' + (hasLocation ? '<a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="' + mapUrl + '">See location</a>' : '<span class="muted small">No location yet</span>') + '</td></tr>';
-    }).join("");
-  }
-  document.getElementById("adminPassword").addEventListener("keydown", e => { if (e.key === "Enter") loadUsers(); });
-</script>
-</body>
-</html>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script><script>
+const API_URL=<?!= JSON.stringify(appUrl) ?>;let SESSION=sessionStorage.getItem('livetrack_admin_session')||'';let latestLink='';
+function api(data){return $.ajax({url:API_URL,type:'GET',data:data,dataType:'jsonp',timeout:30000}).then(r=>{if(!r||!r.ok)throw new Error(r&&r.error?r.error:'Server request failed');return r.data;});}
+function msg(id,text,error){$('#'+id).text(text).toggleClass('text-danger',!!error).toggleClass('text-success',!error);}
+function showDashboard(){ $('#loginPanel').addClass('hidden');$('#dashboard').removeClass('hidden');loadUsers(); }
+function login(){const password=$('#adminPassword').val();if(!password){msg('loginMsg','Enter admin password.',true);return;}$('#loginBtn').prop('disabled',true).text('Checking...');api({api:'login',password}).then(d=>{SESSION=d.session;sessionStorage.setItem('livetrack_admin_session',SESSION);showDashboard();}).catch(e=>msg('loginMsg',e.message,true)).always(()=>$('#loginBtn').prop('disabled',false).text('Login'));}
+function logout(){SESSION='';sessionStorage.removeItem('livetrack_admin_session');$('#dashboard').addClass('hidden');$('#loginPanel').removeClass('hidden');$('#adminPassword').val('');}
+function createLink(){const name=$('#userName').val().trim();if(!name){msg('createMsg','Please enter a name.',true);return;}$('#createBtn').prop('disabled',true).text('Creating...');api({api:'createUser',session:SESSION,name}).then(d=>{latestLink=d.link;$('#createdLink').text(d.link);$('#createdBox').removeClass('hidden');$('#userName').val('');msg('createMsg','User created successfully.');loadUsers();}).catch(e=>{msg('createMsg',e.message,true);if(e.message.toLowerCase().includes('session'))logout();}).always(()=>$('#createBtn').prop('disabled',false).text('Create link'));}
+function loadUsers(){if(!SESSION)return;$('#refreshBtn').prop('disabled',true);api({api:'getUsers',session:SESSION}).then(renderUsers).catch(e=>{msg('usersMsg',e.message,true);if(e.message.toLowerCase().includes('session'))logout();}).always(()=>$('#refreshBtn').prop('disabled',false));}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function date(v){if(!v)return '—';const d=new Date(v);return isNaN(d)?'—':d.toLocaleString();}
+function renderUsers(users){$('#totalUsers').text(users.length);$('#onlineUsers').text(users.filter(x=>x.status==='Online').length);$('#otherUsers').text(users.filter(x=>x.status!=='Online').length);if(!users.length){$('#usersBody').html('<tr><td colspan="4" class="text-center muted py-5">No users yet. Create your first tracking link.</td></tr>');return;}$('#usersBody').html(users.map(u=>{const has=u.latitude!==null&&u.longitude!==null&&isFinite(u.latitude)&&isFinite(u.longitude);const url=has?'https://www.google.com/maps?q='+encodeURIComponent(u.latitude+','+u.longitude):'';return '<tr><td><div class="fw-semibold">'+esc(u.name)+'</div><div class="small muted">'+esc(u.userId)+'</div></td><td><span class="pill">'+esc(u.status)+'</span></td><td class="small">'+esc(date(u.lastSeen))+'</td><td>'+(has?'<a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="'+url+'">See location</a>':'<span class="small muted">No location yet</span>')+'</td></tr>';}).join(''));msg('usersMsg','User list updated.');}
+$('#loginBtn').on('click',login);$('#adminPassword').on('keydown',e=>{if(e.key==='Enter')login();});$('#logoutBtn').on('click',logout);$('#createBtn').on('click',createLink);$('#refreshBtn').on('click',loadUsers);$('#copyBtn').on('click',function(){if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(latestLink).then(()=>msg('createMsg','Tracking link copied.')).catch(()=>fallbackCopy());}else fallbackCopy();});function fallbackCopy(){const t=$('<textarea>').val(latestLink).appendTo('body').select();document.execCommand('copy');t.remove();msg('createMsg','Tracking link copied.');}
+if(SESSION)showDashboard();
+</script></body></html>

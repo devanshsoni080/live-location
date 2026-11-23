@@ -1,105 +1,11 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Location Sharing</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    body{background:#f3f6fb;color:#172033;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
-    .wrap{max-width:560px;margin:6vh auto;padding:16px}
-    .panel{border:0;border-radius:22px;box-shadow:0 12px 35px rgba(15,23,42,.08)}
-    .btn{border-radius:12px;min-height:48px;font-weight:600}
-    .muted{color:#64748b}
-    .live-dot{display:inline-block;width:9px;height:9px;background:#16a34a;border-radius:50%;margin-right:8px}
-  </style>
-</head>
-<body>
-<div class="wrap">
-  <div class="card panel p-4 p-md-5">
-    <div class="mb-3 text-primary fw-bold">LIVE LOCATION SHARING</div>
-    <h2 class="fw-bold mb-2">Share your location</h2>
-    <p class="muted">This page will share your device's location with the person who sent you this link, while this page remains open and your device allows location access.</p>
-    <div class="alert alert-info small">
-      <strong>What will be shared?</strong><br>
-      Your GPS coordinates, accuracy and time will be saved to a location history. The person who gave you this link can view your latest shared location.
-    </div>
-    <div class="form-check mb-3">
-      <input class="form-check-input" type="checkbox" id="consent">
-      <label class="form-check-label" for="consent">I understand and agree to share my location while this page is active.</label>
-    </div>
-    <button id="shareBtn" class="btn btn-primary w-100" onclick="startSharing()">Allow location & start sharing</button>
-    <button id="stopBtn" class="btn btn-outline-danger w-100 mt-2 d-none" onclick="stopSharing()">Stop sharing</button>
-    <div id="status" class="small mt-3 muted" role="status">Location sharing has not started.</div>
-    <div id="details" class="small muted mt-2"></div>
-    <p class="small muted mt-4 mb-0">You can stop sharing at any time by pressing Stop sharing or closing this page. Browser location sharing may pause when the page is in the background or the phone is locked.</p>
-  </div>
-</div>
-<script>
-  const USER_ID = <?!= JSON.stringify(userId) ?>;
-  const TOKEN = <?!= JSON.stringify(token) ?>;
-  let watchId = null;
-  let lastSentAt = 0;
-  let stopped = false;
-
-  function status(message, isError) {
-    const el = document.getElementById("status");
-    el.className = "small mt-3 " + (isError ? "text-danger" : "text-success");
-    el.textContent = message;
-  }
-  function startSharing() {
-    if (!USER_ID || !TOKEN) { status("This tracking link is invalid.", true); return; }
-    if (!document.getElementById("consent").checked) {
-      status("Please tick the consent box before sharing your location.", true);
-      return;
-    }
-    if (!("geolocation" in navigator)) { status("This browser does not support location services.", true); return; }
-    if (!window.google || !google.script || !google.script.run) {
-      status("Server connection not available. Please open the original tracking link again.", true);
-      return;
-    }
-    stopped = false;
-    document.getElementById("shareBtn").classList.add("d-none");
-    document.getElementById("stopBtn").classList.remove("d-none");
-    status("Requesting location permission...");
-    watchId = navigator.geolocation.watchPosition(onPosition, onLocationError, {
-      enableHighAccuracy: true, maximumAge: 0, timeout: 20000
-    });
-  }
-  function onPosition(position) {
-    if (stopped) return;
-    const c = position.coords;
-    document.getElementById("details").textContent =
-      "Accuracy: approximately " + Math.round(c.accuracy) + " metres. Last GPS fix: " + new Date(position.timestamp).toLocaleTimeString();
-    const now = Date.now();
-    // Send only when the browser provides a fresh GPS fix; GPS cannot guarantee a new fix every second.
-    if (now - lastSentAt < 800) return;
-    lastSentAt = now;
-    status("Location received. Saving securely...");
-    google.script.run
-      .withSuccessHandler(function() { if (!stopped) status("Location sharing is active.", false); })
-      .withFailureHandler(function(error) { if (!stopped) status(error && error.message ? error.message : "Could not save location.", true); })
-      .saveLocation(USER_ID, TOKEN, c.latitude, c.longitude, c.accuracy, new Date(position.timestamp).toISOString());
-  }
-  function onLocationError(error) {
-    let message = "Unable to get location.";
-    if (error.code === 1) message = "Location permission denied. Enable location permission in your browser settings and reopen this link.";
-    if (error.code === 2) message = "Your device could not determine the location. Check GPS/location services.";
-    if (error.code === 3) message = "Location request timed out. Please try again in an area with better GPS reception.";
-    status(message, true);
-  }
-  function stopSharing() {
-    stopped = true;
-    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-    watchId = null;
-    document.getElementById("stopBtn").classList.add("d-none");
-    document.getElementById("shareBtn").classList.remove("d-none");
-    status("Location sharing stopped.", true);
-  }
-  window.addEventListener("pagehide", function() {
-    stopped = true;
-    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-  });
-</script>
-</body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Location Sharing</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><style>body{background:#f3f6fb;color:#172033;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}.wrap{max-width:570px;margin:5vh auto;padding:16px}.panel{border:0;border-radius:22px;box-shadow:0 12px 35px #0f172a12}.btn{border-radius:12px;min-height:48px;font-weight:600}.muted{color:#64748b}.live{display:inline-block;width:9px;height:9px;background:#16a34a;border-radius:50%;margin-right:8px}</style></head><body><div class="wrap"><div class="card panel p-4 p-md-5"><div class="text-primary fw-bold small mb-3">LIVE LOCATION SHARING</div><h2 class="fw-bold mb-2">Share your location</h2><p class="muted">This page shares your device location with the person who sent this link while this page stays open and your device allows location access.</p><div class="alert alert-info small"><strong>Information:</strong><br>Your GPS coordinates, accuracy and time will be saved in location history. The link owner can view your latest shared location. Sharing is visible and can be stopped anytime.</div><div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="consent"><label class="form-check-label" for="consent">I understand and agree to share my location while this page is active.</label></div><button id="shareBtn" class="btn btn-primary w-100">Agree & allow location</button><button id="stopBtn" class="btn btn-outline-danger w-100 mt-2 d-none">Stop sharing</button><div id="status" class="small mt-3 muted" role="status">Location sharing has not started.</div><div id="details" class="small muted mt-2"></div><p class="small muted mt-4 mb-0">You can stop sharing here or close this page. Browser tracking may pause when the page is in the background or the phone is locked. Updates depend on GPS and network availability; one-second updates are not guaranteed.</p></div></div>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script><script>
+const API_URL=<?!= JSON.stringify(appUrl) ?>;const USER_ID=<?!= JSON.stringify(userId) ?>;const TOKEN=<?!= JSON.stringify(token) ?>;let watchId=null,stopped=true,lastSent=0,inFlight=false;
+function api(data){return $.ajax({url:API_URL,type:'GET',data:data,dataType:'jsonp',timeout:30000}).then(r=>{if(!r||!r.ok)throw new Error(r&&r.error?r.error:'Could not connect to server');return r.data;});}
+function status(t,bad){$('#status').text(t).toggleClass('text-danger',!!bad).toggleClass('text-success',!bad);}
+function start(){if(!USER_ID||!TOKEN){status('This tracking link is invalid.',true);return;}if(!$('#consent').is(':checked')){status('Please agree to share your location first.',true);return;}if(!navigator.geolocation){status('This browser does not support GPS location.',true);return;}if(!window.isSecureContext){status('Open this tracking link using the secure HTTPS address.',true);return;}stopped=false;$('#shareBtn').addClass('d-none');$('#stopBtn').removeClass('d-none');status('Requesting GPS permission...');watchId=navigator.geolocation.watchPosition(onPosition,onError,{enableHighAccuracy:true,maximumAge:0,timeout:25000});}
+function onPosition(pos){if(stopped)return;const c=pos.coords;$('#details').text('GPS accuracy: about '+Math.round(c.accuracy)+' metres · Last fix: '+new Date(pos.timestamp).toLocaleTimeString());const now=Date.now();if(now-lastSent<900||inFlight)return;lastSent=now;inFlight=true;status('Location received. Saving to Google Sheets...');api({api:'saveLocation',userId:USER_ID,token:TOKEN,latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,clientTime:new Date(pos.timestamp).toISOString()}).then(()=>{if(!stopped)status('Location sharing is active.',false);}).catch(e=>{if(!stopped)status(e.message,true);}).always(()=>{inFlight=false;});}
+function onError(e){let m='Unable to get location.';if(e.code===1)m='Location permission denied. Enable location permission in browser settings and reopen this link.';if(e.code===2)m='Device could not determine location. Please turn on GPS/location services.';if(e.code===3)m='GPS request timed out. Try again in an open area.';status(m,true);}
+function stop(){stopped=true;if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null;$('#stopBtn').addClass('d-none');$('#shareBtn').removeClass('d-none');status('Stopping location sharing...');api({api:'stopSharing',userId:USER_ID,token:TOKEN}).then(()=>status('Location sharing stopped.')).catch(e=>status('Sharing stopped on this page. Server status update failed: '+e.message,true));}
+$('#shareBtn').on('click',start);$('#stopBtn').on('click',stop);window.addEventListener('pagehide',()=>{stopped=true;if(watchId!==null)navigator.geolocation.clearWatch(watchId);});
+</script></body></html>
